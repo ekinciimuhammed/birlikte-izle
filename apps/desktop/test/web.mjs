@@ -64,6 +64,8 @@ const { A, B, errors, cleanup } = await startPair({ port: 8794, env: { A: EMBED,
 
 /** Uygulama içindeki sayfada çalışan kod (iframe'deki video dahil) */
 const inPage = (page, code) => page.evaluate((c) => window.__birlikte.watch.webview.el.executeJavaScript(c), code);
+/** Kullanıcı yapmış gibi (Chromium, kullanıcı dokunmadan yapılan geçişleri "geri"de atlar) */
+const byUser = (page, code) => page.evaluate((c) => window.__birlikte.watch.webview.el.executeJavaScript(c, true), code);
 const FIND = `(document.querySelector('video') || document.querySelector('iframe')?.contentDocument?.querySelector('video'))`;
 const videoState = (page) => inPage(page, `(() => { const v = ${FIND}; return v ? { t: v.currentTime, w: Date.now(), playing: !v.paused } : null; })()`);
 const pageUrl = (page) => page.evaluate(() => window.__birlikte.watch.webview.el.getURL());
@@ -90,6 +92,26 @@ const state = (page) => page.evaluate(() => window.__birlikte.state());
 /** Fare sayfanın üstünde hareket etti (gerçekte fare olayları sayfaya gider; sayfa betiği uygulamaya bildirir) */
 const moveMouseInPage = (page) => inPage(page, `document.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))`);
 const uiShown = (page) => soon(() => page.evaluate(() => !document.querySelector('.watch.ui-hidden')), 3000);
+/** Karşının kamerası/sesi gerçekten geliyor mu (açık dediği izlerde 1,5 sn'de bayt artıyor) */
+const camFlowing = (page) =>
+  page.evaluate(async () => {
+    const w = window.__birlikte.watch;
+    const s = window.__birlikte.state();
+    const pc = w.link?.pc;
+    const ids = new Set(w.remoteStreams.get(w.peerStreams.cam)?.getTracks().map((t) => t.id));
+    if (!pc || !s.peerHere || (!s.peerCamOn && !s.peerMicOn) || !ids.size) return false;
+    const read = async () => {
+      const out = { audio: 0, video: 0 };
+      (await pc.getStats()).forEach((r) => r.type === 'inbound-rtp' && ids.has(r.trackIdentifier) && (out[r.kind] += r.bytesReceived || 0));
+      return out;
+    };
+    const a = await read();
+    await new Promise((r) => setTimeout(r, 1500));
+    const b = await read();
+    return (!s.peerCamOn || b.video > a.video) && (!s.peerMicOn || b.audio > a.audio);
+  });
+const followsPage = (page, url) =>
+  until(page, (u) => window.__birlikte.state().syncMode && window.__birlikte.state().webVideo?.url === u, url, 20_000);
 
 try {
   check('eşleşti', await pair(A, B));
@@ -143,7 +165,7 @@ try {
   check('bölüm: sardıktan sonra yine aynı anda (fark < 150 ms)', Math.abs(d) < 0.15, fmt(d));
 
   // --- A uygulama içinde başka sayfaya geçer (oynatıcı iframe'de): B takip eder -------------------
-  await inPage(A, `location.href = ${JSON.stringify(PAGE_IFRAME)}`);
+  await byUser(A, `location.href = ${JSON.stringify(PAGE_IFRAME)}`);
   check(
     'kumanda: A sayfa değiştirdi → B de aynı sayfaya geçti',
     await until(B, (u) => window.__birlikte.state().syncMode && window.__birlikte.state().webVideo?.url === u, PAGE_IFRAME, 20_000),
@@ -153,6 +175,38 @@ try {
   check('kumanda: iframe\'deki oynatıcı da alanı kaplıyor', await soon(() => inPage(B, FILLS), 5000));
   await cmd(A, 'pause');
   check('kumanda: A durdurdu → B de durdu', await paused(B));
+
+  // --- Sayfada geri: başka videolara bakmak izleme ekranından çıkarmaz ----------------------------
+  await moveMouseInPage(A);
+  const pageBack = A.getByRole('button', { name: 'Sayfada geri' });
+  check('geri: sayfada gezinince "Sayfada geri" düğmesi var', await visible(pageBack, 3000));
+  await pageBack.click();
+  check('geri: A önceki sayfaya döndü, hâlâ izleme ekranında', (await soon(async () => (await pageUrl(A)) === PAGE)) && (await state(A)).active);
+  check('geri: B de o sayfaya geçti', await followsPage(B, PAGE));
+  check('geri: ilk açılan sayfadan geriye gidilmiyor (boş sayfaya düşmez)', await soon(() => A.evaluate(() => !document.querySelector('[aria-label="Sayfada geri"]')), 3000));
+  // Takip eden de sayfada gezinip başka bölüm seçebilir: kumanda ona geçer, öbürü takip eder
+  await moveMouseInPage(B);
+  await byUser(B, `location.href = ${JSON.stringify(PAGE_IFRAME)}`);
+  check('kumanda: B sayfada başka bölüm seçti → A takip ediyor', await followsPage(A, PAGE_IFRAME));
+
+  // --- Biri ana ekrana çıkıp geri gelince: sayfası açılır, takip eder, kamera/ses iki yönde ---------
+  await moveMouseInPage(A);
+  await A.getByRole('button', { name: 'Ana ekran' }).click();
+  check('çıkıp dönünce: B "izleme ekranından çıktı" gördü', await visible(B.locator('.hud', { hasText: 'izleme ekranından çıktı' }), 5000));
+  await A.getByRole('button', { name: 'Katıl' }).click();
+  check(
+    'çıkıp dönünce: A\'nın sayfası yeniden açıldı ve takip ediyor',
+    await until(A, (u) => { try { return window.__birlikte.state().syncMode && window.__birlikte.watch.webview.el.getURL() === u; } catch { return false; } }, PAGE_IFRAME, 30_000),
+  );
+  check('çıkıp dönünce: B, A\'yı görüyor ve duyuyor', await soon(() => camFlowing(B), 15_000));
+  check('çıkıp dönünce: A, B\'yi görüyor ve duyuyor', await soon(() => camFlowing(A), 15_000));
+
+  // --- Pazarlık yarım kalırsa (kanal açık ama kamera/ses gelmiyor) bağlantı kendini sessizce yeniler ---
+  await B.evaluate(() => window.__birlikte.watch.link.pc.getSenders().forEach((s) => s.track && s.replaceTrack(null)));
+  check('yenileme: B\'nin görüntüsü/sesi kesildi', await soon(async () => !(await camFlowing(A)), 6000));
+  check('yenileme: A fark edip bağlantıyı yeniledi, görüntü/ses geri geldi', await soon(() => camFlowing(A), 40_000));
+  check('yenileme: kimse "bağlantı koptu" demedi', !(await A.locator('.hud').allInnerTexts()).concat(await B.locator('.hud').allInnerTexts()).some((t) => t.includes('koptu')));
+  check('yenileme: ikisi de hâlâ birlikte izliyor', (await followsPage(A, PAGE_IFRAME)) && (await state(B)).role === 'host');
 
   await A.screenshot({ path: join(OUT, 'uygulama-ici-A.png') });
   await B.screenshot({ path: join(OUT, 'uygulama-ici-B.png') });

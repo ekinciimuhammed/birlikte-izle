@@ -9,11 +9,14 @@ import { samePage, type BrowserVideo, type TabLink } from './browser';
 
 const CHANNEL = 'birlikte-web';
 
-/** Uygulamanın içindeki sayfada şu an bulunan video */
-export const useWebPage = create<{ video: BrowserVideo | null }>(() => ({ video: null }));
+/** Uygulamanın içindeki sayfada şu an bulunan video; sayfada geri gidilebilir mi */
+export const useWebPage = create<{ video: BrowserVideo | null; canGoBack: boolean }>(() => ({ video: null, canGoBack: false }));
 
 type WebviewElement = HTMLElement & {
   getURL(): string;
+  canGoBack(): boolean;
+  goBack(): void;
+  clearHistory(): void;
   send(channel: string, ...args: unknown[]): Promise<void>;
   executeJavaScript(code: string): Promise<unknown>;
 };
@@ -28,11 +31,16 @@ export class WebView {
   private focus = false;
   /** İlk boş sayfa yüklenmeden verilen adres (o sırada değiştirilen adresi Electron yok sayıyor) */
   private pending: string | null = null;
+  /** Açtığımız sayfa yüklenince geçmişi sil: "geri" siteden boş sayfaya çıkmasın */
+  private freshHistory = false;
 
   constructor() {
     const el = document.createElement('webview') as WebviewElement;
     el.setAttribute('partition', WEB_PARTITION);
     el.setAttribute('src', 'about:blank');
+    // İzleme ekranından çıkınca görünüm pencereden ayrılır ve Electron sayfayı kapatır; geri takılınca
+    // sayfa baştan yüklenir. O yüklenene kadar görünüme mesaj gönderilemez (gönderen hata alır).
+    el.addEventListener('did-attach', () => (this.ready = false));
     el.addEventListener('dom-ready', () => {
       this.ready = true;
       const url = this.pending;
@@ -45,7 +53,7 @@ export class WebView {
       const msg = args[0] as Record<string, unknown>;
       if (msg.t === 'poke') return this.pokes.forEach((fn) => fn());
       // Yeni sayfanın betiği videoyu buldu: görünüm tercihini ona da bildir
-      if (msg.t === 'video' && this.focus) this.el.send(CHANNEL, { t: 'focus', on: true }).catch(() => {});
+      if (msg.t === 'video' && this.focus) this.post({ t: 'focus', on: true });
       this.emit(msg);
     });
     // Sayfa değişince eski sayfanın videosu gider; yeni sayfanın betiği videoyu bulunca bildirir.
@@ -53,6 +61,14 @@ export class WebView {
       const nav = e as Event & { isMainFrame: boolean; isInPlace: boolean };
       if (nav.isMainFrame && !nav.isInPlace) this.emit({ t: 'gone' });
     });
+    el.addEventListener('did-navigate', () => {
+      if (this.freshHistory) {
+        this.freshHistory = false;
+        this.el.clearHistory();
+      }
+      this.updateHistory();
+    });
+    el.addEventListener('did-navigate-in-page', (e) => (e as Event & { isMainFrame: boolean }).isMainFrame && this.updateHistory());
     this.el = el;
     this.link = {
       send: (msg) => this.onSend(msg),
@@ -64,18 +80,24 @@ export class WebView {
 
   /** Sayfayı aç. Aynı sayfa zaten açıksa yeniden yükleme (reklamlar baştan başlamasın). */
   open(url: string) {
-    if (!this.ready) {
+    if (!this.live) {
       this.pending = url;
       return;
     }
     if (samePage(this.currentUrl(), url)) return;
+    this.freshHistory = true;
     this.el.setAttribute('src', url);
+  }
+
+  /** Sayfada bir önceki sayfaya dön (ör. YouTube'da başka videolara bakmak için) */
+  goBack() {
+    if (this.live && this.el.canGoBack()) this.el.goBack();
   }
 
   setFocus(on: boolean) {
     if (on === this.focus) return;
     this.focus = on;
-    if (this.ready) this.el.send(CHANNEL, { t: 'focus', on }).catch(() => {});
+    this.post({ t: 'focus', on });
   }
 
   /** Fare sayfanın üstünde hareket etti (uygulamanın kontrolleri gösterilsin) */
@@ -89,8 +111,35 @@ export class WebView {
   /** Sayfayı kapat: arkada ses kalmasın */
   close() {
     this.pending = null;
+    useWebPage.setState({ canGoBack: false });
     if (this.currentUrl() === 'about:blank') return;
+    this.freshHistory = true;
     this.el.setAttribute('src', 'about:blank');
+  }
+
+  /** Sayfa yüklendi ve görünüm hâlâ pencerede */
+  private get live() {
+    return this.ready && this.el.isConnected;
+  }
+
+  /** Sayfaya mesaj; sayfa o an yeniden yükleniyorsa sessizce vazgeç (yeni sayfa durumu kendisi ister) */
+  private post(msg: Record<string, unknown>) {
+    if (!this.live) return;
+    try {
+      this.el.send(CHANNEL, msg).catch(() => {});
+    } catch {
+      // görünüm tam bu sırada pencereden ayrıldı
+    }
+  }
+
+  private updateHistory() {
+    let canGoBack = false;
+    try {
+      canGoBack = this.currentUrl() !== 'about:blank' && this.el.canGoBack();
+    } catch {
+      // görünüm pencerede değil
+    }
+    if (useWebPage.getState().canGoBack !== canGoBack) useWebPage.setState({ canGoBack });
   }
 
   private currentUrl() {
@@ -103,7 +152,7 @@ export class WebView {
 
   private onSend(msg: Record<string, unknown>) {
     if (msg.t === 'open' && typeof msg.url === 'string') return this.open(msg.url);
-    if (this.ready) this.el.send(CHANNEL, msg).catch(() => {});
+    this.post(msg);
   }
 
   private emit(m: Record<string, unknown>) {

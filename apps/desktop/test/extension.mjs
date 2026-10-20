@@ -124,6 +124,13 @@ const drift = async (pa, pb) => {
 };
 const fmt = (d) => `${Math.round(d * 1000)} ms`;
 const cmd = (page, action, value) => page.evaluate(([a, v]) => window.__birlikte.watch.command(a, v), [action, value]);
+const camsShown = (page) => until(page, () => !!document.querySelector('birlikte-kameralar'), null, 15_000);
+/** Uygulamaya göre karşının kamerası açıksa sekmedeki baloncukta görüntü var (aynı bilgisayardaki iki
+ * Electron'da sahte kameralardan biri bazen kendiliğinden düşüyor; o zaman baloncuk "kapalı" gösterir) */
+const peerCamInTab = async (app, tab) => {
+  if (!(await app.evaluate(() => window.__birlikte.state().peerCamOn))) return true;
+  return until(tab, () => /^[1-9]/.test(document.querySelector('birlikte-kameralar')?.dataset.peer ?? ''), null, 20_000);
+};
 const playing = (page) => page.waitForFunction(() => !document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false);
 const paused = (page) => page.waitForFunction(() => document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false);
 
@@ -152,6 +159,13 @@ try {
   check('B: aynı bölüm B\'nin tarayıcısında açıldı', pb.url().startsWith(PAGE));
   check('B: senkron modda (kendi tarayıcısından)', await until(B, () => window.__birlikte.state().syncMode && window.__birlikte.state().source === 'browser', null, 20_000));
   check('B: ekranda "Tarayıcında oynuyor"', await visible(B.locator('.browser-stage', { hasText: 'Tarayıcında oynuyor' }), 5000));
+
+  // --- Kameralar sitenin üstünde: eklenti baloncukları, görüntü uygulamadan (bilgisayarın içinden) ---
+  check('kameralar: A\'nın sekmesinde baloncuklar var', await camsShown(pa));
+  check('kameralar: B\'nin sekmesinde baloncuklar var', await camsShown(pb));
+  check('kameralar: A\'nın sekmesinde Bade\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(A, pa));
+  check('kameralar: B\'nin sekmesinde Ali\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(B, pb));
+  check('kameralar: kendi görüntüsü de var', await until(pa, () => /^[1-9]/.test(document.querySelector('birlikte-kameralar')?.dataset.self ?? ''), null, 15_000));
 
   // --- Uygulamadan kontrol ---------------------------------------------------------------------
   await cmd(A, 'play');
@@ -236,6 +250,12 @@ try {
   d = await drift(pa, pb);
   check('kanal değişti: birlikte oynarken fark < 150 ms', (await playing(pb)) && Math.abs(d) < 0.15, fmt(d));
   await cmd(A, 'pause');
+  check('kameralar: sekme yeni sayfaya geçince baloncuklar da geldi', (await camsShown(pa)) && (await peerCamInTab(A, pa)));
+  await pa.screenshot({ path: join(OUT, 'eklenti-sekme-kameralar.png') });
+
+  // İzleme ekranından çıkınca sitedeki baloncuklar da kalkar
+  await A.getByRole('button', { name: 'Ana ekran' }).dispatchEvent('click');
+  check('kameralar: A çıkınca kendi sekmesindeki baloncuklar kalktı', await until(pa, () => !document.querySelector('birlikte-kameralar'), null, 10_000));
 
   await A.screenshot({ path: join(OUT, 'eklenti-A.png') });
   await B.screenshot({ path: join(OUT, 'eklenti-B.png') });

@@ -13,6 +13,7 @@ import { mediaUrl, type MediaInfo } from '../../../shared/media';
 import { BackgroundBlur } from '../media/background';
 import { BrowserPlayer, extensionLink, samePage, useExtension, type BrowserVideo } from '../media/browser';
 import { sameSite, type Channel } from '../media/channels';
+import { BrowserCams } from '../media/browsercams';
 import { useWebPage, WebView } from '../media/webview';
 import { isEmbeddable } from '../../../shared/web';
 import { MoviePlayer, type Playable, type WebVideo } from '../media/player';
@@ -180,6 +181,8 @@ class WatchController {
   /** Uygulamanın içindeki sayfa (Kanallar, YouTube): sadece masaüstünde */
   readonly webview = isDesktop ? new WebView() : null;
   readonly web = new BrowserPlayer(this.webview?.link ?? null);
+  /** Tarayıcıda izlerken kameralar sitenin üstünde (eklenti) */
+  private readonly browserCams = bridge.extension ? new BrowserCams() : null;
   private pendingWeb: WebVideo | null = null; // guest: eklenti bağlanınca açılacak
   private pendingChannel: { url: string; name: string; embedded: boolean; until: number } | null = null; // seçtiğim kanalda video belirince birlikte izle
   /** Şu an kullanılan oynatıcı (host'ta film, guest'te senkron moddaki kopya) */
@@ -199,6 +202,10 @@ class WatchController {
   private peerBye: 'leave' | 'quit' | null = null; // o "görüşürüz" dedi: kapanan bağlantı "koptu" sayılmaz
   private byeAt = 0; // son "görüşürüz" (odadan gelen ekran değişikliği aynı çıkışı ikinci kez bildirmesin)
   private dropped = false; // bağlantı koptu: geri gelince "geri geldi"
+  private mediaWatch: ReturnType<typeof setInterval> | undefined; // kamerası/sesi gerçekten geliyor mu
+  private renewing = 0; // sessiz yenileme başladı (zaman): kapanıp açılan kanal "koptu" sayılmaz
+  private lastRenew = 0;
+  private webTouchedAt = 0; // fare en son uygulama içindeki sayfanın üstünde (kendim gezindim mi)
   private peerScreen: string | null = null; // odadan: onun açık ekranı (izleme → ana ekran = çıktı)
   private stats: StatsSummary | null = null;
 
@@ -304,6 +311,7 @@ class WatchController {
     fromBrowser('userseek', (e) => this.command('seek', Number((e as CustomEvent).detail)));
     // Eklenti sonradan bağlandıysa bekleyen bölümü aç.
     useExtension.subscribe((s, prev) => {
+      if (s.connected !== prev.connected) this.syncBrowserCams();
       if (s.connected && !prev.connected && this.pendingWeb && get().role === 'guest') this.followBrowser(this.pendingWeb);
       // Kanallar: seçtiğim kanalda video belirdi → "Birlikte izle"ye basmış gibi
       const channel = this.pendingChannel;
@@ -321,15 +329,20 @@ class WatchController {
         this.pendingChannel = null;
         if (Date.now() < channel.until && get().active) return this.shareTab(this.web, video, channel.name);
       }
-      // Uygulama içinde başka bir bölüme ya da kanala geçtim: o da takip etsin (kumanda gibi)
+      // Uygulama içinde başka bir bölüme ya da kanala geçtim: o da takip etsin (kumanda gibi). Takip
+      // eden taraf da sayfada gezinip başka bir video seçebilir (sayfanın kendiliğinden geçmesi sayılmaz).
       const shared = get().webVideo;
-      if (get().role === 'host' && this.player === this.web && shared && !samePage(video.url, shared.url)) this.shareTab(this.web, video);
+      const role = get().role;
+      const mine = role === 'host' || (role === 'guest' && performance.now() - this.webTouchedAt < 20_000);
+      if (mine && this.player === this.web && shared && !samePage(video.url, shared.url)) this.shareTab(this.web, video);
     });
+    this.webview?.onPoke(() => (this.webTouchedAt = performance.now()));
     // Uygulama içindeki sayfadan çıkılınca kapat (arkada ses kalmasın); hemen geri dönülüyorsa dokunma.
     useWatch.subscribe((s, prev) => {
       if (prev.source === 'web' && s.source !== 'web') setTimeout(() => get().source !== 'web' && this.webview?.close(), 0);
       // İzlerken "sadece video"; önizlemede (çerez onayı, oynat düğmesi) sayfanın tamamı
       this.webview?.setFocus(s.source === 'web' && s.role !== 'idle' && s.webFocus);
+      this.syncBrowserCams();
     });
     onSettingChange((key, value, origin) => this.onSetting(key, value, origin));
     bridge.version?.().then((v) => (this.appVersion = v), () => {});
@@ -521,6 +534,8 @@ class WatchController {
     this.stopStats?.();
     this.stopStats = null;
     clearInterval(this.iceTimer);
+    clearInterval(this.mediaWatch);
+    this.renewing = 0;
     window.removeEventListener('online', this.onNetworkBack);
     this.clearConnectionHelp();
     const link = this.link;
@@ -619,8 +634,68 @@ class WatchController {
     }
     this.subtitles.resend();
     this.peerBye = null;
-    this.hud(this.dropped ? `${this.partnerName()} geri geldi` : `${this.partnerName()} burada`, 'heart');
+    if (!this.isRenewing()) this.hud(this.dropped ? `${this.partnerName()} geri geldi` : `${this.partnerName()} burada`, 'heart');
+    this.renewing = 0;
     this.dropped = false;
+    this.watchPeerMedia();
+  }
+
+  /**
+   * Kontrol kanalı açık, o "kameram/mikrofonum açık" diyor ama görüntüsü/sesi gelmiyorsa (biri çıkıp
+   * geri gelince bir kez görüldü: pazarlık yarım kalıyor, kendiliğinden düzelmiyor) bağlantıyı sessizce yenile.
+   */
+  private watchPeerMedia() {
+    clearInterval(this.mediaWatch);
+    const last = { audio: -1, video: -1 };
+    const since = { audio: 0, video: 0 };
+    const timer = setInterval(async () => {
+      const link = this.link;
+      const pc = link?.pc;
+      if (!pc || !link.isOpen || !get().peerHere) return;
+      const cam = this.remoteStreams.get(this.peerStreams.cam);
+      const ids = new Set(cam?.getTracks().map((t) => t.id));
+      const bytes = { audio: 0, video: 0 };
+      try {
+        (await pc.getStats()).forEach((r) => {
+          if (r.type === 'inbound-rtp' && ids.has(r.trackIdentifier) && (r.kind === 'audio' || r.kind === 'video')) {
+            bytes[r.kind as 'audio' | 'video'] += r.bytesReceived ?? 0;
+          }
+        });
+      } catch {
+        return;
+      }
+      if (this.link !== link || this.mediaWatch !== timer) return;
+      const now = performance.now();
+      const expect = { audio: get().peerMicOn, video: get().peerCamOn };
+      let stuck = false;
+      for (const kind of ['audio', 'video'] as const) {
+        const flowing = bytes[kind] > last[kind];
+        last[kind] = bytes[kind];
+        if (!expect[kind] || flowing) since[kind] = 0;
+        else if (!since[kind]) since[kind] = now;
+        else if (now - since[kind] > 8000) stuck = true;
+      }
+      if (stuck && now - this.lastRenew > 30_000) this.renewLink();
+    }, 2000);
+    this.mediaWatch = timer;
+  }
+
+  private renewLink() {
+    const link = this.link;
+    if (!link?.isOpen) return;
+    console.warn(`${this.partnerName()} görüntüsü/sesi gelmiyor: bağlantı yenileniyor`);
+    this.send({ t: 'renew' });
+    this.beginRenew(link);
+  }
+
+  /** İkimiz de yenilemeyi bilir; oturumu kibar olmayan taraf kurar ("yenile" mesajı önce ulaşsın). */
+  private beginRenew(link: Link) {
+    this.lastRenew = this.renewing = performance.now();
+    if (!link.polite) setTimeout(() => this.link === link && link.renew(), 300);
+  }
+
+  private isRenewing() {
+    return performance.now() - this.renewing < 15_000;
   }
 
   /** Çıkıyorum: o "izleme ekranından çıktı" / "uygulamayı kapattı" görsün. Gönderildiyse true. */
@@ -687,6 +762,8 @@ class WatchController {
     if (!wasHere) return;
     // Geri gelince guest "bende de var" diye yeniden haber verir; o zamana kadar yayın açık.
     if (get().role === 'host') this.leavePeerSync();
+    // Sessiz yenileme: kanal birazdan yeniden açılır; haber verme, filmi durdurma
+    if (this.isRenewing()) return this.evaluateLink();
     // "Görüşürüz" demeden kapandıysa bağlantı koptu (o çıktıysa haber zaten verildi)
     if (!bye) {
       this.dropped = true;
@@ -829,6 +906,10 @@ class WatchController {
         this.floatReaction(m.kind);
         break;
 
+      case 'renew':
+        if (this.link?.isOpen) this.beginRenew(this.link);
+        break;
+
       case 'bye':
         this.peerBye = m.reason;
         this.byeAt = performance.now();
@@ -874,6 +955,21 @@ class WatchController {
       attach(this.remoteCam, cam);
       this.updateDucking();
     }
+    this.syncBrowserCams();
+  }
+
+  /** Tarayıcıda izlerken iki kamera sitenin üstünde de görünsün (eklenti baloncukları) */
+  private syncBrowserCams() {
+    if (!this.browserCams) return;
+    const s = get();
+    if (!s.active || s.source !== 'browser' || !useExtension.getState().connected) return this.browserCams.update(null);
+    const cam = this.remoteStreams.get(this.peerStreams.cam);
+    this.browserCams.update({
+      peer: this.partnerName(),
+      self: getSetting('profile.name') || 'Ben',
+      peerTrack: (s.peerHere && s.peerCamOn && cam?.getVideoTracks()[0]) || null,
+      selfTrack: this.camOut,
+    });
   }
 
   private updateDucking() {
@@ -1879,6 +1975,7 @@ class WatchController {
     if (track) this.trackRoles.set(track.id, 'cam');
     this.localCam.srcObject = track ? new MediaStream([track]) : null;
     this.link?.setTrack('cam-video', track, this.camStream, { maxBitrate: 1_200_000 });
+    this.syncBrowserCams();
   }
 
   private useMicTrack(track: MediaStreamTrack | null) {

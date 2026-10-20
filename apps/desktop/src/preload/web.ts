@@ -198,6 +198,17 @@ document.addEventListener(
   { capture: true, passive: true },
 );
 
+// Farenin "geri" tuşu sayfada geri gider (tarayıcıdaki gibi; uygulama ilk açılan sayfadan geriye geçmişi siler)
+document.addEventListener(
+  'mouseup',
+  (e) => {
+    if (e.button !== 3 || window.top !== window) return;
+    e.preventDefault();
+    history.back();
+  },
+  { capture: true },
+);
+
 const EVENTS = ['play', 'playing', 'pause', 'seeked', 'seeking', 'ratechange', 'waiting', 'canplay', 'ended', 'durationchange'];
 function watch(v: HTMLVideoElement | null) {
   if (video === v) return;

@@ -59,6 +59,7 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 İzleme ekranında **Kanallar** (üst çubuktaki TV düğmesi ya da boş ekrandaki düğmeler): atv, Kanal D, Show TV, Star TV, NOW, TV8 canlı yayınları ve YouTube **uygulamanın içinde** açılır. Seçtiğin kanal onda da açılır; video belirince birlikte izleme kendiliğinden başlar. Uygulama içinde başka bir bölüme ya da kanala geçersen o da takip eder.
 
 - **Sadece video:** İzlerken sitenin menüleri ve reklam alanları gizlenir, oynatıcı alanı kaplar; sitenin kendi kontrolleri çalışır. Üst çubuktaki düğmeyle sayfanın tamamına dönülür (başka bölüm seçmek için).
+- **Sayfada geri:** Sitede gezinince sol üstte **‹** belirir: sayfada bir önceki sayfaya döner (farenin geri tuşu da). İzleme ekranından çıkarmaz; ana ekran için yanındaki **ev** düğmesi. Başka bir video seçen kim olursa olsun (izleten ya da takip eden) öbürü de ona geçer.
 - **Canlı yayında** zaman çubuğu yerine **CANLI** yazar. İki oynatıcının canlı zamanı karşılaştırılamadığı için sadece oynat/durdur ortaktır, sarma yoktur.
 - Sitede yapılanlar (oynat, durdur, sar) karşıya geçer. Reklam araları ikinizi de bekletir.
 - Uygulamanın içinde sadece bu siteler açılır (`apps/desktop/src/shared/web.ts`); açılır pencereler engellenir, kamera/mikrofon izni verilmez. NOW'un canlı yayını sitenin kendi oynatıcısı yüzünden bazen yüklenmiyor.
@@ -66,7 +67,9 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 
 ## Netflix ve diğerleri (tarayıcı eklentisi)
 
-Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Kanalların kendi sitelerindeki ücretsiz bölümler de olur: atv, Kanal D, Show TV, Star TV, NOW ve TV8. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). Kamera ve ses uygulamada kalır; **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
+Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Kanalların kendi sitelerindeki ücretsiz bölümler de olur: atv, Kanal D, Show TV, Star TV, NOW ve TV8. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). **Kameralar sitenin üstünde:** Tarayıcıda izlerken ikinizin kamerası sayfanın köşesinde iki baloncuk olarak görünür (tam ekranda da). Sürükleyip istediğin yere bırak, çift tıklayınca büyür, **×** ile gizlenir. Görüntü uygulamadan eklentiye bu bilgisayarın içinde gider (dışarı çıkmaz); ses uygulamadan duyulur. Ayrıca **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
+
+Netflix için en kolay yol budur: ikiniz de Netflix'i Chrome/Edge'de kendi hesabınızla açarsınız, eklenti oynat/durdur/sarmayı eşler ve kameralarınızı sitenin üstünde gösterir. (Netflix uygulamanın içinde oynamaz: Widevine, imzalı bir Electron ister.)
 
 Reklamlı sitelerde reklam araları ikinizi de bekletir: birinde reklam girince video durur, bitince birlikte devam edersiniz. atv'de video oynat düğmesine basınca, NOW'da çerez sorusunu cevaplayınca başlar.
 
@@ -76,13 +79,15 @@ Reklamlı sitelerde reklam araları ikinizi de bekletir: birinde reklam girince 
 2. Tarayıcıda `chrome://extensions` (Edge: `edge://extensions`) → **Geliştirici modu**nu aç.
 3. **Paketlenmemiş öğe yükle** → açılan klasörü seç. Mac'te klasör uygulamanın içinde olduğu için seçim penceresi oraya girmez: pencerede **⌘⇧G**'ye basıp `/Applications/Birlikte Izle.app/Contents/Resources/extension` yaz.
 
-Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç); yeni siteler o zaman gelir.
+Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç); yeni siteler ve sitedeki kameralar (eklenti 0.4.0) o zaman gelir.
 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 
 Eklenti uygulamaya sadece bu bilgisayarın içinden (`127.0.0.1`, kapı 47652) bağlanır; uygulama sadece bu eklentinin kimliğini kabul eder. Chrome Web Mağazası'na yüklenirse mağaza yeni bir kimlik verir: `BIRLIKTE_EXT_IDS=<kimlik>` ile eklenebilir.
 
 ## O ayrılınca
+
+Uygulama içindeki bir sitede gezinmek için ana ekrana dönmeye gerek yok: sol üstteki **‹** sayfada geri gider (yukarıda). Ana ekrana dönüp tekrar **Katıl**'a basan taraf, kaldığı sayfaya geri gelir ve kameralar iki yönde yeniden açılır. Bağlantı açık görünüp karşının görüntüsü/sesi 8 saniye gelmezse uygulama bağlantıyı kendiliğinden, sessizce yeniden kurar (uygulamayı kapatıp açmaya gerek kalmaz).
 
 Çıkan taraf karşıya haber verir: **"… izleme ekranından çıktı"**, **"… uygulamayı kapattı"** ya da haber gelmeden bağlantı kesildiyse **"… ile bağlantı koptu, yeniden bağlanılıyor…"** (geri gelince "geri geldi"). Uygulama arkadaysa (ör. tarayıcıda izlerken) sistem bildirimi olarak gelir (**Ayarlar → Genel → Bildirimler**). **Ayarlar → Oynatma → O ayrılırsa ya da bağlantı koparsa → Filmi durdur** açıksa film de durur.
 
@@ -208,8 +213,8 @@ npm run test:phone -w @birlikte/desktop           # masaüstü ↔ telefon taray
 npm run test:sync -w @birlikte/desktop            # senkron mod, bölüm gönderme, kayma, istatistik (42)
 npm run test:youtube -w @birlikte/desktop         # YouTube senkronu, gerçek YouTube; internet yoksa atlanır (18)
 npm run test:camera -w @birlikte/desktop          # kamera arka planı bulanıklaştırma (9)
-npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi, iki Edge + iki uygulama (36); EDGE_PATH ile Chrome for Testing da olur
-npm run test:web -w @birlikte/desktop             # uygulama içinde izleme: kanallar, canlı, sadece video (26)
+npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi + sitedeki kameralar, iki Edge + iki uygulama (43); EDGE_PATH ile Chrome for Testing da olur
+npm run test:web -w @birlikte/desktop             # uygulama içinde izleme: kanallar, canlı, sadece video, sayfada geri, çıkıp dönme, kendini onarma (39)
 npm run dist:dir -w @birlikte/desktop
 npm run test:packaged -w @birlikte/desktop        # paketlenmiş uygulama + ffmpeg, eklenti, uygulama içi sayfa (7)
 ```

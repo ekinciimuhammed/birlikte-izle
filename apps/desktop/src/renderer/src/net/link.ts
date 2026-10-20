@@ -79,6 +79,15 @@ export class Link extends Emitter<Events> {
     return this.dc?.readyState === 'open';
   }
 
+  get polite() {
+    return this.opts.polite;
+  }
+
+  /** Oturumu baştan kur (sadece kibar olmayan taraf; kibar taraf yeni teklifle kendini yeniler). */
+  renew() {
+    if (!this.stopped && !this.opts.polite) this.newSession();
+  }
+
   /** TURN kimlik bilgileri süreli: tazeleri sonraki ICE yenilemesinde ve yeni oturumlarda kullanılır. */
   setIceServers(iceServers: RTCIceServer[]) {
     this.opts.iceServers = iceServers;

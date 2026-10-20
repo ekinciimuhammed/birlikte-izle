@@ -13,6 +13,7 @@ import {
   Focus,
   FolderOpen,
   Heart,
+  House,
   Link,
   Lock,
   LogOut,
@@ -46,6 +47,7 @@ import { usePresence } from '../session/session';
 import { getSetting, setSetting, useSetting } from '../settings/store';
 import { Button, IconButton, Spinner, cx } from '../ui/controls';
 import { HeartFilled, SkipIcon } from '../ui/icons';
+import { useWebPage } from '../media/webview';
 import { youtubeId } from '../media/youtube';
 import { formatTime, useWatch, watch, type HudIcon } from '../watch/controller';
 import { BrowserOffer, BrowserStage } from './watch/BrowserStage';
@@ -101,11 +103,20 @@ export function Watch({
     poke.current();
     // Fare uygulama içindeki sayfanın üstündeyken olaylar sayfaya gider; sayfa hareketi ayrıca bildirir.
     const offWebPoke = watch.webview?.onPoke(() => poke.current());
+    // Farenin "geri" tuşu: uygulama içindeki sayfada geri (izleme ekranından çıkarmaz)
+    const onMouseBack = (e: MouseEvent) => {
+      if (e.button !== 3 || useWatch.getState().source !== 'web') return;
+      e.preventDefault();
+      watch.webview?.goBack();
+    };
+    window.addEventListener('mouseup', onMouseBack);
     return () => {
       clearTimeout(hideTimer.current);
       offWebPoke?.();
+      window.removeEventListener('mouseup', onMouseBack);
     };
   }, []);
+  const pageCanGoBack = useWebPage((p) => p.canGoBack);
   const showUi = uiVisible || !s.playing || s.role === 'idle';
   // İki hook da her zaman çağrılmalı (&& ile kısa devre hook sırasını bozar)
   const hidePeer = !!useSetting('ui.camHidePeer');
@@ -244,8 +255,14 @@ export function Watch({
       )}
 
       <header className="watch-topbar chrome drag">
+        {/* Sayfa açıkken "geri" sayfada geri gider (başka videolara bakmak için); ana ekran ayrı düğme */}
+        {s.source === 'web' && pageCanGoBack && (
+          <IconButton label="Sayfada geri" onClick={() => watch.webview?.goBack()}>
+            <ChevronLeft />
+          </IconButton>
+        )}
         <IconButton label="Ana ekran" onClick={onBack}>
-          <ChevronLeft />
+          {s.source === 'web' ? <House /> : <ChevronLeft />}
         </IconButton>
         <div className="watch-title">{s.title || 'Birlikte İzle'}</div>
         <TransferPill />

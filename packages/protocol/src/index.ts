@@ -227,6 +227,8 @@ export const PeerMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('react'), kind: Reaction }),
   /** Çıkıyorum: izleme ekranından (leave) ya da uygulamadan (quit). Gelmeden kapanan bağlantı "koptu" demektir. */
   z.object({ t: z.literal('bye'), reason: z.enum(['leave', 'quit']) }),
+  /** Kontrol kanalı açık ama kamera/ses gelmiyor: bağlantıyı sessizce baştan kur (ikisi de "koptu" demesin) */
+  z.object({ t: z.literal('renew') }),
   /** Kanallar: karşı taraf bir kanal ya da platform seçti; aynısı benim tarayıcımda da açılsın */
   z.object({ t: z.literal('channel'), name: z.string().max(40), url: z.string().max(2000).regex(/^https:\/\//) }),
   /** İki tarafta aynı olması gereken ayarlar (ör. codec) */

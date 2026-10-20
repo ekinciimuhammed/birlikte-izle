@@ -14,6 +14,8 @@ let activeFrame = null; // o sekmede videonun olduğu çerçeve (oynatıcı ifra
 let heardAt = 0; // kontrol edilen çerçeveden son haber
 let lastVideo = null; // { tab, ...video }
 let lastState = null;
+let camsInfo = null; // uygulamadan: kameralar sitenin üstünde gösterilsin mi, isimler (cams.js)
+let camsTarget = null; // baloncukların gösterildiği { tab, frame }
 
 // --- Uygulamaya bağlantı -----------------------------------------------------------------------
 
@@ -59,6 +61,8 @@ async function connect() {
       };
       sock.onclose = () => {
         if (ws === sock) ws = null;
+        camsInfo = null; // uygulama kapandı: baloncuklar da kalksın
+        pushCams();
         setTimeout(connect, 3000);
       };
       toApp({ t: 'hello', browser: browserName(), version: VERSION });
@@ -95,6 +99,26 @@ async function onApp(msg) {
   if (msg.t === 'open' && typeof msg.url === 'string' && birlikteAllowedUrl(msg.url)) {
     await openUrl(msg.url, msg.replace === true);
   }
+  if (msg.t === 'cams') {
+    camsInfo = msg.on ? msg : null;
+    pushCams();
+  }
+  if (msg.t === 'cam-signal' && camsTarget) toFrame(camsTarget, msg);
+}
+
+// --- Kameralar sitenin üstünde -----------------------------------------------------------------
+
+function toFrame({ tab, frame }, msg) {
+  chrome.tabs.sendMessage(tab, msg, { frameId: frame }).catch(() => {});
+}
+
+/** Baloncuklar videonun olduğu çerçevede görünür; video başka sekmeye/çerçeveye geçince onlar da geçer. */
+function pushCams() {
+  const target = camsInfo && activeTab != null ? { tab: activeTab, frame: activeFrame ?? 0 } : null;
+  const same = target && camsTarget && target.tab === camsTarget.tab && target.frame === camsTarget.frame;
+  if (camsTarget && !same) toFrame(camsTarget, { t: 'cams', on: false });
+  camsTarget = target;
+  if (target) toFrame(target, camsInfo);
 }
 
 /**
@@ -130,12 +154,14 @@ async function openUrl(url, replace = false) {
   const tab = await chrome.tabs.create({ url, active: true });
   activeTab = tab.id;
   activeFrame = null;
+  pushCams();
 }
 
 /** Bu sekmeyi (ya da sekmedeki bir çerçeveyi) kontrol et ve oynatıcısının bilgisini uygulamaya bildir */
 function activate(tab, frame = null) {
   activeTab = tab;
   activeFrame = frame;
+  pushCams();
   chrome.tabs.sendMessage(tab, { t: 'probe' }, frame == null ? undefined : { frameId: frame }).then(
     async (r) => {
       if (!r || activeTab !== tab) return;
@@ -163,7 +189,10 @@ function pageInfo({ top, ...video }, tab) {
 function claim(tab, frame, playing) {
   if (tab !== activeTab) return false;
   if (activeFrame === frame || activeFrame === null) {
-    activeFrame = frame;
+    if (activeFrame !== frame) {
+      activeFrame = frame;
+      pushCams();
+    }
     heardAt = Date.now();
     return true;
   }
@@ -189,11 +218,16 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (!claim(tab, frame, false)) return;
     lastVideo = { ...pageInfo(msg, sender.tab), tab };
     toApp(lastVideo);
+    // Sayfa yenilendiyse yeni sayfanın betiği baloncukları bilmiyor
+    if (camsTarget) toFrame(camsTarget, camsInfo);
   } else if (msg.t === 'state') {
     if (tab !== activeTab && msg.playing) activate(tab, frame); // başka sekmede oynatıldı: artık o
     if (!claim(tab, frame, msg.playing)) return;
     lastState = msg;
     toApp(msg);
+  } else if (msg.t === 'cam-signal') {
+    if (camsTarget && tab === camsTarget.tab && frame === camsTarget.frame) toApp(msg);
+    return;
   } else if (msg.t === 'gone' && tab === activeTab && frame === activeFrame) {
     lastVideo = lastState = null;
     heardAt = 0; // sayfadaki başka bir çerçeve hemen devralabilir
@@ -208,6 +242,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
   activeFrame = null;
   lastVideo = lastState = null;
   toApp({ t: 'gone' });
+  pushCams();
 });
 
 // Hizmet çalışanı uyutulursa bağlantı kopar: yarım dakikada bir uyanıp yeniden bağlan.
