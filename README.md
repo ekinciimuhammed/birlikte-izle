@@ -133,7 +133,7 @@ npm run deploy                         # web sürümünü derler ve yayınlar
 - **Web sürümü:** Bu adresi telefonda ya da herhangi bir tarayıcıda açan kişi, hiçbir şey kurmadan katılır.
 - **Masaüstü uygulamasının sunucusu:** Bir sonraki adımda derlemeye gömülür.
 
-İsteğe bağlı TURN (bazı mobil ve CGNAT ağlarında doğrudan bağlantı kurulamaz; her ay ilk 1.000 GB ücretsiz): Cloudflare panelinde **Realtime → TURN Server** bölümünden bir anahtar oluştur, sonra `npx wrangler secret put CF_TURN_KEY_ID` ve `npx wrangler secret put CF_TURN_API_TOKEN` komutlarını çalıştır.
+TURN (mobil veri ve CGNAT ağlarında doğrudan bağlantı kurulamaz, TURN olmadan "bağlanıyor"da kalınır; her ay ilk 1.000 GB ücretsiz): Cloudflare panelinde **Realtime → TURN Server** bölümünden bir anahtar oluştur, sonra `npx wrangler secret put CF_TURN_KEY_ID` ve `npx wrangler secret put CF_TURN_API_TOKEN` komutlarını çalıştır. Uygulamada **Ayarlar → Bağlantı → Bağlantıyı test et** sunucuya ulaşılıp ulaşılmadığını, o ağda doğrudan bağlantının mümkün olup olmadığını ve TURN'ün çalışıp çalışmadığını gösterir.
 
 ### 2. Kurulum dosyaları
 

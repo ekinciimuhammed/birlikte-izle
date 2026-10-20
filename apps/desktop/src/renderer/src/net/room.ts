@@ -26,6 +26,7 @@ export class RoomClient extends Emitter<{ state: RoomState; peer: PeerInfo | nul
   private stopped = true;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private pingTimer: ReturnType<typeof setInterval> | undefined;
+  private lastSeen = 0; // sunucudan son mesaj (pong dahil)
 
   constructor(private readonly url: () => string) {
     super();
@@ -66,13 +67,20 @@ export class RoomClient extends Emitter<{ state: RoomState; peer: PeerInfo | nul
 
     ws.onopen = () => {
       this.retry = 0;
+      this.lastSeen = Date.now();
       this.setState('online');
       this.send({ type: 'status', status: this.status });
       clearInterval(this.pingTimer);
-      this.pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send('ping'), 25_000);
+      this.pingTimer = setInterval(() => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        // İki ping cevapsız kaldı: bağlantı ölü (ör. ağ değişti ama işletim sistemi haber vermedi).
+        if (Date.now() - this.lastSeen > 60_000) return this.drop(ws);
+        ws.send('ping');
+      }, 25_000);
     };
 
     ws.onmessage = (e) => {
+      this.lastSeen = Date.now();
       if (e.data === 'pong') return;
       const msg = parseJson(ServerMessage, String(e.data));
       if (!msg) return;
@@ -92,21 +100,36 @@ export class RoomClient extends Emitter<{ state: RoomState; peer: PeerInfo | nul
       }
     };
 
-    ws.onclose = (e) => {
-      if (this.ws !== ws) return;
-      clearInterval(this.pingTimer);
-      this.ws = null;
-      this.setPeer(null);
-      if (e.code === CloseCode.Replaced) return this.setState('replaced');
-      if (this.stopped) return;
-      this.setState('offline');
-      const delay = Math.min(30_000, 1000 * 2 ** this.retry++) * (0.75 + Math.random() * 0.5);
-      this.retryTimer = setTimeout(() => this.connect(), delay);
-    };
+    ws.onclose = (e) => this.closed(ws, e.code);
+  }
+
+  private closed(ws: WebSocket, code: number, delay?: number) {
+    if (this.ws !== ws) return;
+    clearInterval(this.pingTimer);
+    this.ws = null;
+    this.setPeer(null);
+    if (code === CloseCode.Replaced) return this.setState('replaced');
+    if (this.stopped) return;
+    this.setState('offline');
+    const wait = delay ?? Math.min(30_000, 1000 * 2 ** this.retry++) * (0.75 + Math.random() * 0.5);
+    this.retryTimer = setTimeout(() => this.connect(), wait);
+  }
+
+  /** Cevap vermeyen bağlantıyı kapanmasını beklemeden bırak, hemen yenisini kur. */
+  private drop(ws: WebSocket) {
+    this.closed(ws, 1006, 0);
+    ws.close();
   }
 
   private reconnectNow = () => {
-    if (!this.stopped && this.state === 'offline') this.connect();
+    if (this.stopped) return;
+    if (this.state === 'offline') return this.connect();
+    // İnternet geri geldi ama ağ değişmiş olabilir: mevcut bağlantı hâlâ canlı mı, hemen yokla.
+    const ws = this.ws;
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    const sent = Date.now();
+    ws.send('ping');
+    setTimeout(() => this.ws === ws && this.lastSeen < sent && this.drop(ws), 5000);
   };
 
   private send(msg: ClientMessage) {

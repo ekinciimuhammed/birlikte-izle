@@ -120,6 +120,16 @@ try {
   const saved = existsSync(settingsFile) ? JSON.parse(readFileSync(settingsFile, 'utf8')) : {};
   check('ayarlar dosyaya kaydedildi', saved['profile.name'] === 'Ali' && !!saved['pairing.coupleId']);
 
+  // Ayarlar → Bağlantı → "Bağlantıyı test et" (yerel sunucuda TURN anahtarı yok)
+  await A.getByRole('button', { name: 'Ayarlar' }).click();
+  await A.getByRole('button', { name: 'Bağlantı', exact: true }).click();
+  await A.getByRole('button', { name: 'Bağlantıyı test et' }).click();
+  const healthRow = (text) => A.locator('.settings .row', { hasText: text });
+  check('bağlantı testi: sunucuya ulaşılıyor', await visible(healthRow('Ulaşılıyor'), 20_000));
+  check('bağlantı testi: doğrudan bağlantı ölçüldü', await visible(healthRow('Doğrudan bağlantı'), 1000));
+  check('bağlantı testi: TURN olmadığını söylüyor', await visible(healthRow('Sunucuda tanımlı değil'), 1000));
+  await A.getByRole('button', { name: 'Bitti' }).click();
+
   // Teşhis: kamera izleri kim tarafından, ne zaman durduruluyor?
   for (const page of [A, B]) {
     await page.evaluate(() => {
@@ -217,6 +227,21 @@ try {
   check('A kamera baloncukları dürüst (canlı ya da kapalı)', await until(A, camsHonest, null, 8000));
   check('B kamera baloncukları dürüst (canlı ya da kapalı)', await until(B, camsHonest, null, 8000));
   check('pencerelerde hata yok', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+  // Bağlanılamayınca sonsuz "bağlanıyor" yerine sebep: B aktarmayı "Her zaman" yapar ama sunucuda TURN yok.
+  await B.evaluate(() => window.__birlikte.setSetting('connection.turn', 'always'));
+  await B.getByRole('button', { name: 'Ana ekran' }).click();
+  await B.getByRole('button', { name: 'Katıl' }).click();
+  check('bağlanamayınca B sebebini söylüyor', await visible(B.locator('.connection-help', { hasText: 'Her zaman' }), 45_000));
+  check('bağlanamayınca A da uyarıyor', await visible(A.locator('.connection-help', { hasText: 'bağlantı kurulamadı' }), 10_000));
+  await B.evaluate(() => window.__birlikte.setSetting('connection.turn', 'auto'));
+  await B.getByRole('button', { name: 'Ana ekran' }).click();
+  await B.getByRole('button', { name: 'Katıl' }).click();
+  check(
+    'bağlanınca uyarı kalkıyor',
+    (await visible(A.locator('.watch-topbar .pill', { hasText: 'Bade burada' }), 25_000)) &&
+      (await until(A, () => !document.querySelector('.connection-help'), null, 2000)),
+  );
 } catch (err) {
   console.error(err);
   results.push(false);

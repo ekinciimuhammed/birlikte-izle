@@ -242,6 +242,7 @@ export function Watch({
           <SettingsIcon />
         </IconButton>
       </header>
+      <ConnectionHelp />
 
       <CamBubbles name={name} />
 
@@ -425,6 +426,20 @@ function Notice() {
     <div className="empty-notice" role="status">
       <span>{notice}</span>
       <button type="button" aria-label="Kapat" onClick={() => useWatch.setState({ notice: null })}>
+        <X />
+      </button>
+    </div>
+  );
+}
+
+/** Uzun süre bağlanılamayınca sebebi (kapatılabilir; bağlanınca kendiliğinden kalkar) */
+function ConnectionHelp() {
+  const help = useWatch((s) => s.connectionHelp);
+  if (!help) return null;
+  return (
+    <div className="empty-notice connection-help" role="alert">
+      <span>{help}</span>
+      <button type="button" aria-label="Kapat" onClick={() => useWatch.setState({ connectionHelp: null })}>
         <X />
       </button>
     </div>

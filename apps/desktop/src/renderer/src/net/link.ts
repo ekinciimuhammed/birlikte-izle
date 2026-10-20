@@ -77,6 +77,24 @@ export class Link extends Emitter<Events> {
     return this.dc?.readyState === 'open';
   }
 
+  /** TURN kimlik bilgileri süreli: tazeleri sonraki ICE yenilemesinde ve yeni oturumlarda kullanılır. */
+  setIceServers(iceServers: RTCIceServer[]) {
+    this.opts.iceServers = iceServers;
+    const pc = this.pc;
+    if (!pc || pc.connectionState === 'closed') return;
+    try {
+      pc.setConfiguration({ ...pc.getConfiguration(), iceServers });
+    } catch (err) {
+      console.warn('ICE sunucuları güncellenemedi', err);
+    }
+  }
+
+  /** Ağ değişti: 4 sn'lik kopukluğu beklemeden yeni yolları dene. */
+  restartIce() {
+    const pc = this.pc;
+    if (pc && pc.connectionState !== 'closed' && !this.setupPending) pc.restartIce();
+  }
+
   send(msg: PeerMessage) {
     if (this.isOpen) this.dc!.send(JSON.stringify(msg));
   }

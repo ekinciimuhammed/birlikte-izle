@@ -9,6 +9,7 @@ import { GROUPS, type GroupMeta } from '../settings/groups';
 import type { GroupId, SettingDef } from '../settings/registry';
 import { setSetting, settingDef, useSetting, useSettings } from '../settings/store';
 import { useExtension } from '../media/browser';
+import { checkConnection, type HealthReport } from '../net/health';
 import { bridge } from '../platform/bridge';
 import { unpair, usePresence } from '../session/session';
 import { Button, Keycaps, ListRow, ListSection, Segmented, Select, Switch, cx } from '../ui/controls';
@@ -204,17 +205,51 @@ function TextSetting(props: {
 
 // --- Gruplara özel ek bölümler -----------------------------------------------------------
 
+const VERDICT_DOT = { ok: 'green', warn: 'orange', fail: 'red' } as const;
+
 function ConnectionStatus() {
   const server = usePresence((p) => p.server);
   const text = { idle: 'Bağlı değil', connecting: 'Bağlanıyor…', online: 'Bağlı', offline: 'Bağlantı yok, yeniden deneniyor', replaced: 'Başka pencerede açık' }[server];
+  const [report, setReport] = useState<HealthReport | null>(null);
+  const [testing, setTesting] = useState(false);
+  const test = async () => {
+    setTesting(true);
+    try {
+      setReport(await checkConnection());
+    } finally {
+      setTesting(false);
+    }
+  };
   return (
-    <ListSection title="Durum">
-      <ListRow label="Sunucu">
-        <span className="row-value">
-          <span className={cx('dot', server === 'online' ? 'green' : server === 'offline' ? 'red' : 'orange')} /> {text}
-        </span>
-      </ListRow>
-    </ListSection>
+    <>
+      <ListSection title="Durum">
+        <ListRow label="Sunucu">
+          <span className="row-value">
+            <span className={cx('dot', server === 'online' ? 'green' : server === 'offline' ? 'red' : 'orange')} /> {text}
+          </span>
+        </ListRow>
+      </ListSection>
+      <ListSection
+        title="Bağlantı testi"
+        footer={
+          report?.summary ??
+          'Sunucuya ulaşılıyor mu, bu ağda doğrudan bağlantı kurulabiliyor mu, aktarma (TURN) çalışıyor mu? Sadece bu bilgisayarın ağını ölçer; karşı tarafta da çalıştırın.'
+        }
+      >
+        {report?.items.map((item) => (
+          <ListRow key={item.label} label={item.label}>
+            <span className="row-value">
+              <span className={cx('dot', VERDICT_DOT[item.verdict])} /> {item.text}
+            </span>
+          </ListRow>
+        ))}
+        <ListRow label="Bu bilgisayarın ağı">
+          <Button variant="secondary" size="small" disabled={testing} onClick={test}>
+            {testing ? 'Test ediliyor…' : report ? 'Yeniden test et' : 'Bağlantıyı test et'}
+          </Button>
+        </ListRow>
+      </ListSection>
+    </>
   );
 }
 

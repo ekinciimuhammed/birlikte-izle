@@ -16,6 +16,7 @@ import { MoviePlayer, type Playable, type WebVideo } from '../media/player';
 import { audioLabel, pickAudio, planPlayback, type Step } from '../media/playback';
 import { YouTubeError, YouTubePlayer, youtubeId, youtubeStart } from '../media/youtube';
 import { fetchIceServers } from '../net/api';
+import { checkConnection } from '../net/health';
 import { Link } from '../net/link';
 import type { RoomClient } from '../net/room';
 import { watchStats, type StatsSummary, type TrackRole } from '../net/stats';
@@ -84,6 +85,8 @@ export interface WatchState {
   hud: { id: number; text: string; icon: HudIcon } | null;
   /** Boş ekranda kalıcı açıklama (ör. "bu video uygulamada oynatılamıyor") */
   notice: string | null;
+  /** Uzun süre bağlanılamayınca sebebi (bağlantı testinin sonucu) */
+  connectionHelp: string | null;
   reactions: { id: number; kind: Reaction }[];
   stats: StatsSummary | null;
 }
@@ -116,6 +119,7 @@ const initialState = (): WatchState => ({
   transfer: null,
   hud: null,
   notice: null,
+  connectionHelp: null,
   reactions: [],
   stats: null,
 });
@@ -132,6 +136,12 @@ function mediaElement({ muted = false, autoplay = false } = {}) {
   v.autoplay = autoplay;
   v.muted = muted;
   return v;
+}
+
+/** Ayarlar'da aktarma (TURN) kapalıysa TURN sunucuları çıkarılır. */
+function usableIce(ice: RTCIceServer[]) {
+  if (getSetting('connection.turn') !== 'never') return ice;
+  return ice.filter((s) => ![s.urls].flat().some((u) => u.startsWith('turn')));
 }
 
 class WatchController {
@@ -154,6 +164,9 @@ class WatchController {
   private linkGeneration = 0;
   private pendingSignals: SignalData[] = [];
   private stopStats: (() => void) | null = null;
+  private helpTimer: ReturnType<typeof setTimeout> | undefined; // uzun süre bağlanılamazsa sebebini bul
+  private iceTimer: ReturnType<typeof setInterval> | undefined; // TURN kimlik bilgilerini tazele
+  private iceFetchedAt = 0;
   private stats: StatsSummary | null = null;
 
   // Sabit akış kimlikleri: karşı taraf filmi ve kamerayı bu kimliklerle ayırt eder.
@@ -362,6 +375,7 @@ class WatchController {
     this.linkStarting = true;
     this.pendingSignals = [];
     set({ connection: 'connecting' });
+    this.armConnectionHelp();
 
     const ice = await fetchIceServers();
     if (generation !== this.linkGeneration) return; // bu arada durduruldu ya da yeniden başlatıldı
@@ -371,18 +385,19 @@ class WatchController {
     }
 
     const turn = getSetting('connection.turn');
-    const iceServers =
-      turn === 'never' ? ice.filter((s) => ![s.urls].flat().some((u) => u.startsWith('turn'))) : ice;
-
     const link = new Link((data) => room.signal(data), {
       // Cihaz kimliği büyük olan taraf "kibar"dır: oturumu karşı taraf başlatır.
       polite: getSetting('device.id') > peer.deviceId,
       codec: getSetting('video.codec'),
-      iceServers,
+      iceServers: usableIce(ice),
       policy: turn === 'always' ? 'relay' : 'all',
     });
     this.link = link;
     this.linkStarting = false;
+    this.iceFetchedAt = performance.now();
+    // TURN kimlik bilgileri 24 saat geçerli; uzun oturumda eskimesin.
+    this.iceTimer = setInterval(() => this.refreshIce(true), 6 * 60 * 60 * 1000);
+    window.addEventListener('online', this.onNetworkBack);
 
     // Kapatılmış eski bir bağlantıdan gelen olaylar yok sayılır.
     const current = <T>(fn: (arg: T) => void) => (arg: T) => this.link === link && fn(arg);
@@ -402,6 +417,10 @@ class WatchController {
       current((state) => {
         if (state === 'connected') set({ connection: link.isOpen ? 'connected' : 'connecting' });
         else set({ connection: get().peerHere || state === 'reconnecting' ? 'reconnecting' : 'connecting' });
+        if (state === 'reconnecting') {
+          this.armConnectionHelp();
+          this.refreshIce();
+        }
       }),
     );
 
@@ -424,6 +443,9 @@ class WatchController {
     this.pendingSignals = [];
     this.stopStats?.();
     this.stopStats = null;
+    clearInterval(this.iceTimer);
+    window.removeEventListener('online', this.onNetworkBack);
+    this.clearConnectionHelp();
     const link = this.link;
     this.link = null;
     link?.stop();
@@ -436,6 +458,38 @@ class WatchController {
     if (get().role === 'guest') this.becomeIdle();
     set({ connection: 'alone', peerHere: false, peerCamOn: false, peerMicOn: false, stats: null });
   }
+
+  /** 20 sn'de bağlanamazsak sonsuz "bağlanıyor" yerine sebebini bul ve göster. */
+  private armConnectionHelp() {
+    if (this.helpTimer) return;
+    const timer = setTimeout(async () => {
+      const report = await checkConnection();
+      if (this.helpTimer !== timer) return; // bu arada bağlandık ya da çıktık
+      this.helpTimer = undefined;
+      set({ connectionHelp: `${this.partnerName()} ile bağlantı kurulamadı. ${report.summary} Ayrıntı: Ayarlar → Bağlantı.` });
+    }, 20_000);
+    this.helpTimer = timer;
+  }
+
+  private clearConnectionHelp() {
+    clearTimeout(this.helpTimer);
+    this.helpTimer = undefined;
+    if (get().connectionHelp) set({ connectionHelp: null });
+  }
+
+  /** Taze STUN/TURN bilgisi (yeniden bağlanırken en fazla 30 sn'de bir) */
+  private async refreshIce(force = false) {
+    const link = this.link;
+    if (!link || (!force && performance.now() - this.iceFetchedAt < 30_000)) return;
+    this.iceFetchedAt = performance.now();
+    const ice = await fetchIceServers();
+    if (this.link === link) link.setIceServers(usableIce(ice));
+  }
+
+  /** İnternet geri geldi (ağ değişmiş olabilir): taze bilgiyle hemen yeni yolları dene. */
+  private onNetworkBack = () => {
+    void this.refreshIce(true).then(() => this.link?.restartIce());
+  };
 
   /** Mevcut yerel izleri (film, kamera, mikrofon) yeni bağlantıya verir. */
   private pushTracks() {
@@ -465,6 +519,7 @@ class WatchController {
   }
 
   private onChannelOpen() {
+    this.clearConnectionHelp();
     set({ peerHere: true, connection: 'connected' });
     this.send({
       t: 'hello',
@@ -491,6 +546,7 @@ class WatchController {
   private onChannelClose() {
     const wasHere = get().peerHere;
     set({ peerHere: false, peerCamOn: false, peerMicOn: false, connection: this.link ? 'reconnecting' : 'alone' });
+    if (this.link) this.armConnectionHelp();
     this.ducker.stop();
     this.clock.stop();
     this.transfer.onCancel();

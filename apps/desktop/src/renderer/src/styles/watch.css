@@ -150,6 +150,19 @@
   height: 14px;
 }
 
+/* Bağlanılamayınca sebebi: üst çubuğun hemen altında, filmin ve "yeniden bağlanıyor"un üstünde */
+.connection-help {
+  position: absolute;
+  top: calc(var(--titlebar) + 16px);
+  left: 50%;
+  z-index: 11;
+  width: min(480px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--orange) 24%, rgba(0, 0, 0, 0.75));
+  backdrop-filter: blur(12px);
+}
+
 .yt-field {
   display: flex;
   align-items: center;

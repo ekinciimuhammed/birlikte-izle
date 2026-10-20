@@ -53,11 +53,16 @@ export function joinPairing(code: string) {
   });
 }
 
-export async function fetchIceServers(): Promise<RTCIceServer[]> {
+/** STUN/TURN bilgisi; sunucuya ulaşılamazsa hata fırlatır (bağlantı testi bunu kullanır). */
+export async function requestIceServers(): Promise<RTCIceServer[]> {
   const q = new URLSearchParams({ couple: getSetting('pairing.coupleId'), token: getSetting('pairing.token') });
+  const { iceServers } = await request(`/ice?${q}`, IceResponse);
+  return iceServers;
+}
+
+export async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
-    const { iceServers } = await request(`/ice?${q}`, IceResponse);
-    return iceServers;
+    return await requestIceServers();
   } catch (err) {
     console.warn('ICE sunucuları alınamadı, sadece STUN kullanılacak', err);
     return FALLBACK_ICE;
