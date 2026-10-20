@@ -1,0 +1,491 @@
+/* ---------- Malzemeler ---------- */
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Düğmeler ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--r);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), filter 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-large {
+  height: 52px;
+  padding: 0 30px;
+  border-radius: 16px;
+  font-size: 17px;
+}
+
+.btn-small {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: var(--fill-2);
+}
+
+.btn-secondary:hover {
+  background: var(--fill);
+}
+
+.btn-plain {
+  background: none;
+  color: var(--accent);
+}
+
+.btn-plain:hover {
+  background: var(--fill-3);
+}
+
+.btn-destructive {
+  background: rgba(255, 69, 58, 0.16);
+  color: var(--red);
+}
+
+.btn-destructive:hover {
+  background: rgba(255, 69, 58, 0.24);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease), color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--fill-2);
+}
+
+.icon-btn:active {
+  transform: scale(0.9);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.icon-btn.large {
+  width: 54px;
+  height: 54px;
+}
+
+.icon-btn.large svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* FaceTime gibi: kapalı mikrofon/kamera beyaz daire */
+.icon-btn.off {
+  background: rgba(255, 255, 255, 0.92);
+  color: #000;
+}
+
+/* ---------- Anahtar, bölümlü seçici, açılır liste, metin ---------- */
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  cursor: pointer;
+  transition: background 0.25s var(--ease);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
+  transition: transform 0.32s var(--spring);
+}
+
+.switch[aria-checked='true'] {
+  background: var(--green);
+}
+
+.switch[aria-checked='true']::after {
+  transform: translateX(18px);
+}
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--fill-3);
+  /* Kayan parça ve yazılar tek katman düzeninde: parça her zaman yazıların altında */
+  isolation: isolate;
+}
+
+.segmented button {
+  position: relative;
+  padding: 4px 13px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented .thumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 7px;
+  background: #636366;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+.segmented-label {
+  position: relative;
+  z-index: 1;
+}
+
+.select {
+  appearance: none;
+  max-width: 220px;
+  padding: 6px 22px 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  background: transparent
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 9 5-5 5 5M7 15l5 5 5-5'/%3E%3C/svg%3E")
+    no-repeat right 4px center / 13px;
+  color: var(--label-2);
+  text-align: right;
+  cursor: pointer;
+}
+
+.select:hover {
+  background-color: var(--fill-3);
+}
+
+.select option {
+  background: var(--surface-2);
+  color: var(--label);
+}
+
+.text-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--label);
+  text-align: right;
+}
+
+.text-input::placeholder {
+  color: var(--label-3);
+}
+
+/* ---------- Gruplu liste (iOS / macOS Ayarlar) ---------- */
+
+.list-section + .list-section {
+  margin-top: 22px;
+}
+
+.list-title {
+  margin: 0 16px 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.list {
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.list-footer {
+  margin: 7px 16px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--label-3);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 44px;
+  padding: 6px 16px;
+}
+
+.row + .row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--separator);
+}
+
+.row-label {
+  flex: none;
+  max-width: 60%;
+}
+
+.row-value {
+  color: var(--label-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row.clickable {
+  cursor: pointer;
+}
+
+.row.clickable:hover {
+  background: var(--fill-3);
+}
+
+.accents {
+  display: flex;
+  gap: 10px;
+}
+
+.accent-dot {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s var(--spring), box-shadow 0.2s;
+}
+
+.accent-dot:hover {
+  transform: scale(1.12);
+}
+
+.accent-dot[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor;
+}
+
+.keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  margin-left: 4px;
+  border-radius: 6px;
+  background: var(--fill-2);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+  color: var(--label);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Avatar, durum ---------- */
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 75%, #fff), var(--accent) 55%, color-mix(in srgb, var(--accent) 65%, #000));
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.avatar.muted {
+  background: linear-gradient(160deg, var(--surface-3), var(--surface));
+  color: var(--label-2);
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--label-3);
+  transition: background 0.3s;
+}
+
+.dot.green {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.6);
+}
+
+.dot.orange {
+  background: var(--orange);
+}
+
+.dot.red {
+  background: var(--red);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--label-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--fill);
+  border-top-color: var(--label);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Kaydırıcı ---------- */
+
+.range {
+  --p: 0%;
+  flex: 1;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--label) var(--p), var(--fill) var(--p));
+}
+
+.range::-webkit-slider-thumb {
+  width: 15px;
+  height: 15px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  appearance: none;
+  transform: scale(0);
+  transition: transform 0.2s var(--spring);
+}
+
+.range:hover::-webkit-slider-thumb,
+.range:active::-webkit-slider-thumb,
+.range:focus-visible::-webkit-slider-thumb {
+  transform: scale(1);
+}
+
+/* ---------- Sayfa (modal) ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Bildirim (HUD) ---------- */
+
+.hud {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 48px);
+  padding: 12px 18px;
+  border-radius: 16px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.hud svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}

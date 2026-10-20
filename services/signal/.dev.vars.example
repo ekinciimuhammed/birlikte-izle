@@ -1,0 +1,9 @@
+# Yerel geliştirme için bu dosyayı .dev.vars adıyla kopyala.
+# Canlıda: npx wrangler secret put ROOM_KEY
+
+# Oda anahtarlarını imzalamak için uzun, rastgele bir değer
+ROOM_KEY=yerel-gelistirme-anahtari-degistir
+
+# İsteğe bağlı: Cloudflare Realtime TURN (doğrudan bağlantı kurulamazsa)
+# CF_TURN_KEY_ID=
+# CF_TURN_API_TOKEN=

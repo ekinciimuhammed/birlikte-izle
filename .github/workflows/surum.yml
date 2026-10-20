@@ -1,0 +1,57 @@
+# Yeni sürüm: "v0.2.0" gibi bir etiket gönderince Windows, macOS (Apple Silicon + Intel) ve
+# Linux kurulum dosyalarını derleyip GitHub Releases'e yükler. Kurulu uygulamalar oradan
+# kendiliğinden güncellenir.
+#
+# Gerekli depo değişkeni (Settings → Secrets and variables → Actions → Variables):
+#   SIGNAL_URL  = https://birlikte-izle-signal.<hesabın>.workers.dev
+name: Sürüm
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  derle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            hedef: --win
+          - os: macos-latest # Apple Silicon (arm64)
+            hedef: --mac --arm64
+          - os: macos-15-intel # Intel Mac (x64)
+            hedef: --mac --x64
+          - os: ubuntu-latest
+            hedef: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # ffmpeg-static ve Electron, çalıştığı makinenin platformuna uygun dosyayı indirir.
+      - run: npm ci
+
+      - name: Uygulamayı derle
+        run: npm run build -w @birlikte/desktop
+        env:
+          VITE_SIGNAL_URL: ${{ vars.SIGNAL_URL }}
+
+      - name: Kurulum dosyasını üret ve yayınla
+        working-directory: apps/desktop
+        run: npx electron-builder --config electron-builder.config.cjs ${{ matrix.hedef }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BIRLIKTE_GH_OWNER: ${{ github.repository_owner }}
+          BIRLIKTE_GH_REPO: ${{ github.event.repository.name }}
+          # İsteğe bağlı: Apple Developer sertifikası (yoksa ad-hoc imzalanır)
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}

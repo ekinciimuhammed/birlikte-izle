@@ -1,0 +1,20 @@
+{
+  "name": "birlikte-izle-faz0",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Faz 0 prototipi: film yayını + iki yönlü kontrol + kameralar (P2P WebRTC)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/e2e.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.43.1"
+  }
+}

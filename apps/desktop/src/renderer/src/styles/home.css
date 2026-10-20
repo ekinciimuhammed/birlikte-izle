@@ -1,0 +1,262 @@
+.home {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1000px 640px at 50% 18%, color-mix(in srgb, var(--accent) 16%, #000) 0%, #000 66%);
+}
+
+.home-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.home-avatar {
+  position: relative;
+  margin-bottom: 10px;
+  border-radius: 50%;
+}
+
+/* Çevrimiçiyken avatarın etrafında nefes alan yeşil halka */
+.home-avatar.online::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 3px solid var(--green);
+  border-radius: 50%;
+  animation: breathe 2.8s var(--ease) infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.035);
+  }
+}
+
+.home-name {
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.home-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 18px;
+  color: var(--label-2);
+  font-size: 15px;
+}
+
+.home-invite {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 14px 14px 20px;
+  border-radius: var(--r-lg);
+  text-align: left;
+}
+
+.home-invite strong {
+  display: block;
+}
+
+.home-invite span {
+  color: var(--label-2);
+  font-size: 13px;
+}
+
+.home-hint {
+  max-width: 340px;
+  margin: 10px 0 0;
+  color: var(--label-3);
+  font-size: 13px;
+}
+
+/* ---------- Kaldığınız yerden ---------- */
+
+/* ---------- Birlikte izlediğiniz süre ---------- */
+
+.together {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(420px, calc(100vw - 32px));
+  margin-top: 22px;
+  padding: 14px 18px;
+  border-radius: var(--r);
+  box-shadow: none;
+  text-align: left;
+}
+
+.together-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.together-total strong {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.together-caption {
+  color: var(--label-3);
+  font-size: 12px;
+}
+
+.together-week {
+  display: flex;
+  gap: 8px;
+}
+
+.together-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.together-bar {
+  display: flex;
+  align-items: flex-end;
+  width: 8px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fill-2);
+}
+
+.together-bar span {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.together-label {
+  color: var(--label-3);
+  font-size: 10.5px;
+}
+
+.home-history {
+  width: min(760px, calc(100vw - 32px));
+  margin-top: 34px;
+  text-align: left;
+}
+
+.home-history h3 {
+  margin: 0 4px 10px;
+  color: var(--label-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.history-card {
+  position: relative;
+  border-radius: var(--r);
+  box-shadow: none;
+  transition: transform 0.2s var(--spring);
+}
+
+.history-card:hover {
+  transform: translateY(-2px);
+}
+
+.history-open {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-name {
+  overflow: hidden;
+  padding-right: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-meta {
+  color: var(--label-3);
+  font-size: 12px;
+}
+
+.history-bar {
+  height: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fill-2);
+}
+
+.history-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.history-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--label-3);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.history-card:hover .history-remove,
+.history-remove:focus-visible {
+  opacity: 1;
+}
+
+.history-remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 8px 8px 18px;
+  border-radius: 999px;
+  translate: -50% 0;
+}

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Birlikte İzle</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Katılma -->
+    <main id="join">
+      <form class="card" id="joinForm" autocomplete="off">
+        <div class="app-icon" data-icon="heartFilled"></div>
+        <h1>Birlikte İzle</h1>
+        <p class="sub">Aynı oda kodunu ikiniz de girin.</p>
+
+        <div class="inset">
+          <label class="row"><span>Adın</span><input id="nameInput" required maxlength="24" placeholder="Adın" /></label>
+          <label class="row">
+            <span>Oda kodu</span>
+            <input id="roomInput" required maxlength="32" spellcheck="false" autocapitalize="off" />
+          </label>
+        </div>
+
+        <div class="inset">
+          <div class="row">
+            <span>Kamera</span>
+            <button type="button" class="switch" role="switch" aria-checked="true" id="joinCam" aria-label="Kamera"></button>
+          </div>
+          <div class="row">
+            <span>Mikrofon</span>
+            <button type="button" class="switch" role="switch" aria-checked="true" id="joinMic" aria-label="Mikrofon"></button>
+          </div>
+        </div>
+        <p class="footnote">Aynı bilgisayarda iki sekmeyle deniyorsan birinde mikrofonu kapat.</p>
+
+        <button class="primary" type="submit">Katıl</button>
+      </form>
+    </main>
+
+    <!-- İzleme -->
+    <main id="stage" hidden>
+      <video id="localMovie" class="movie" playsinline hidden></video>
+      <video id="remoteMovie" class="movie" playsinline autoplay hidden></video>
+
+      <div class="empty" id="empty">
+        <div>
+          <h2 id="emptyTitle">Bir dizi seç</h2>
+          <p id="emptyText">Dosyayı buraya sürükle ya da seç.</p>
+          <button class="primary" id="pickBtn">Dosya Seç</button>
+        </div>
+      </div>
+
+      <header class="topbar chrome">
+        <div class="title" id="mediaTitle">Birlikte İzle</div>
+        <button class="pill glass" id="presence" title="Davet bağlantısını kopyala">
+          <span class="dot" id="presenceDot"></span>
+          <span id="presenceText">Bağlanıyor…</span>
+          <span class="pill-icon" data-icon="link"></span>
+        </button>
+        <button class="icon-btn" id="openBtn" data-icon="folder" title="Dosya aç"></button>
+        <button class="icon-btn" id="statsBtn" data-icon="activity" title="Bağlantı bilgisi"></button>
+        <button class="icon-btn" id="settingsBtn" data-icon="sliders" title="Ayarlar"></button>
+      </header>
+
+      <div class="cams" id="cams" data-corner="br">
+        <div class="bubble" id="bubbleRemote" hidden>
+          <video id="camRemote" autoplay playsinline></video>
+          <span class="initial" id="remoteInitial"></span>
+          <span class="name" id="remoteName"></span>
+          <span class="muted-badge" data-icon="micOff"></span>
+        </div>
+        <div class="bubble self" id="bubbleLocal">
+          <video id="camLocal" autoplay playsinline muted></video>
+          <span class="initial" id="localInitial"></span>
+          <span class="muted-badge" data-icon="micOff"></span>
+        </div>
+      </div>
+
+      <div class="hud glass" id="hud" role="status" aria-live="polite"></div>
+      <div class="hearts" id="hearts"></div>
+
+      <footer class="controls chrome glass" id="controls">
+        <div class="timeline">
+          <span class="time" id="timeNow">0:00</span>
+          <input type="range" id="seek" min="0" max="0" step="0.1" value="0" aria-label="Zaman çizelgesi" />
+          <span class="time" id="timeLeft">0:00</span>
+        </div>
+        <div class="buttons">
+          <div class="group left">
+            <button class="icon-btn" id="volBtn" data-icon="volume" title="Ses (kendi tarafın)"></button>
+            <input type="range" id="volume" class="mini" min="0" max="1" step="0.01" value="1" aria-label="Ses" />
+          </div>
+          <div class="group center">
+            <button class="icon-btn" id="backBtn" title="Geri (←)"></button>
+            <button class="icon-btn big" id="playBtn" data-icon="play" title="Oynat / Durdur (Boşluk)"></button>
+            <button class="icon-btn" id="fwdBtn" title="İleri (→)"></button>
+          </div>
+          <div class="group right">
+            <button class="icon-btn" id="heartBtn" data-icon="heart" title="Kalp gönder"></button>
+            <button class="icon-btn" id="micBtn" data-icon="mic" title="Mikrofon (M)"></button>
+            <button class="icon-btn" id="camBtn" data-icon="video" title="Kamera (C)"></button>
+            <button class="icon-btn" id="fsBtn" data-icon="maximize" title="Tam ekran (F)"></button>
+          </div>
+        </div>
+      </footer>
+
+      <aside class="panel glass" id="statsPanel" hidden>
+        <h3>Bağlantı Bilgisi</h3>
+        <div class="inset" id="statsBody"></div>
+      </aside>
+
+      <div class="sheet-backdrop" id="settingsSheet" hidden>
+        <section class="sheet" role="dialog" aria-label="Ayarlar">
+          <header>
+            <h2>Ayarlar</h2>
+            <button class="text-btn" id="settingsDone">Bitti</button>
+          </header>
+          <div id="settingsBody"></div>
+        </section>
+      </div>
+
+      <input type="file" id="fileInput" accept="video/*,.mkv" hidden />
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

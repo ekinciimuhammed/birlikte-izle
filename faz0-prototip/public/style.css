@@ -1,0 +1,867 @@
+/* Birlikte İzle · Faz 0
+   Apple HIG'den: önce içerik, gruplu listeler, cam malzemeler, yaylı hareket. */
+
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+  --label: #f5f5f7;
+  --label-2: rgba(235, 235, 245, 0.62);
+  --label-3: rgba(235, 235, 245, 0.34);
+  --separator: rgba(84, 84, 88, 0.6);
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-2: rgba(120, 120, 128, 0.22);
+  --glass: rgba(30, 30, 32, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --accent: #0a84ff;
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --pink: #ff375f;
+
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 22px;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Inter,
+    system-ui, sans-serif;
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --spring: cubic-bezier(0.2, 0.9, 0.25, 1.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--label);
+  font: 15px/1.4 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Gruplu liste (iOS / macOS Ayarlar) ---------- */
+
+.inset {
+  background: var(--surface);
+  border-radius: var(--r);
+  overflow: hidden;
+  text-align: left;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 16px;
+}
+
+.row + .row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--separator);
+}
+
+.row input {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--label);
+  font: inherit;
+}
+
+.row input::placeholder {
+  color: var(--label-3);
+}
+
+.row select {
+  appearance: none;
+  background: transparent
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 9 5-5 5 5M7 15l5 5 5-5'/%3E%3C/svg%3E")
+    no-repeat right center / 13px;
+  border: 0;
+  outline: 0;
+  color: var(--label-2);
+  font: inherit;
+  padding: 6px 20px 6px 6px;
+  cursor: pointer;
+  text-align: right;
+}
+
+.row select option {
+  background: var(--surface-2);
+  color: var(--label);
+}
+
+.group-title {
+  margin: 22px 16px 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.group-footer {
+  margin: 7px 16px 0;
+  font-size: 12.5px;
+  color: var(--label-3);
+}
+
+/* ---------- Kontroller ---------- */
+
+.primary {
+  height: 50px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), filter 0.15s;
+}
+
+.primary:hover {
+  filter: brightness(1.1);
+}
+
+.primary:active {
+  transform: scale(0.98);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  cursor: pointer;
+  transition: background 0.25s var(--ease);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
+  transition: transform 0.32s var(--spring);
+}
+
+.switch[aria-checked='true'] {
+  background: var(--green);
+}
+
+.switch[aria-checked='true']::after {
+  transform: translateX(20px);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--fill-2);
+}
+
+.segmented button {
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: #636366;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease), color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--fill-2);
+}
+
+.icon-btn:active {
+  transform: scale(0.9);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.icon-btn.big {
+  width: 54px;
+  height: 54px;
+}
+
+.icon-btn.big svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* FaceTime gibi: kapalı mikrofon/kamera beyaz daire */
+.icon-btn.off {
+  background: rgba(255, 255, 255, 0.92);
+  color: #000;
+}
+
+.text-btn {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+input[type='range'] {
+  --p: 0%;
+  flex: 1;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--label) var(--p), var(--fill) var(--p));
+}
+
+input[type='range']::-webkit-slider-thumb {
+  width: 15px;
+  height: 15px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  appearance: none;
+  transform: scale(0);
+  transition: transform 0.2s var(--spring);
+}
+
+input[type='range']:hover::-webkit-slider-thumb,
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1);
+}
+
+input[type='range']::-moz-range-track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--fill);
+}
+
+input[type='range']::-moz-range-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--label);
+}
+
+/* ---------- Katılma ekranı ---------- */
+
+#join {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 32px 16px;
+  background: radial-gradient(1100px 600px at 50% -10%, #3a1426 0%, #000 62%);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(380px, 100%);
+  text-align: center;
+}
+
+.app-icon {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 6px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #ff6b8b, #ff2d55 55%, #c2185b);
+  box-shadow: 0 12px 34px rgba(255, 45, 85, 0.35);
+  color: #fff;
+}
+
+.app-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  margin: -6px 0 8px;
+  color: var(--label-2);
+}
+
+.footnote {
+  margin: -6px 16px 4px;
+  font-size: 12.5px;
+  color: var(--label-3);
+  text-align: left;
+}
+
+/* ---------- Sahne ---------- */
+
+#stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+#stage.ui-hidden {
+  cursor: none;
+}
+
+.movie {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.chrome {
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+}
+
+#stage.ui-hidden .chrome {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#stage.ui-hidden .topbar {
+  transform: translateY(-8px);
+}
+
+#stage.ui-hidden .controls {
+  transform: translate(-50%, 10px);
+}
+
+.topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px 28px;
+  background: linear-gradient(rgba(0, 0, 0, 0.6), transparent);
+}
+
+.topbar .title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-right: 6px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--label-2);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.pill-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--label-3);
+  transition: background 0.3s;
+}
+
+.dot.green {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.6);
+}
+
+.dot.orange {
+  background: var(--orange);
+}
+
+.dot.red {
+  background: var(--red);
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: radial-gradient(900px 520px at 50% 42%, #1e1e24, #000 70%);
+  text-align: center;
+}
+
+.empty h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.empty p {
+  max-width: 380px;
+  margin: 0 auto 22px;
+  color: var(--label-2);
+}
+
+#stage.drop .empty {
+  outline: 2px dashed var(--accent);
+  outline-offset: -18px;
+}
+
+.controls {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  z-index: 4;
+  width: min(740px, calc(100% - 32px));
+  padding: 12px 16px 8px;
+  border-radius: var(--r-lg);
+  transform: translateX(-50%);
+}
+
+.timeline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time {
+  min-width: 48px;
+  font-size: 12px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.time:last-child {
+  text-align: right;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.group.center {
+  gap: 16px;
+}
+
+.group.right {
+  justify-content: flex-end;
+}
+
+input.mini {
+  flex: none;
+  width: 86px;
+}
+
+/* ---------- Kamera baloncukları ---------- */
+
+.cams {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.cams[data-corner='br'] {
+  right: 20px;
+  bottom: 150px;
+}
+
+.cams[data-corner='bl'] {
+  left: 20px;
+  bottom: 150px;
+  align-items: flex-start;
+}
+
+.cams[data-corner='tr'] {
+  right: 20px;
+  top: 74px;
+}
+
+.cams[data-corner='tl'] {
+  left: 20px;
+  top: 74px;
+  align-items: flex-start;
+}
+
+.cams.dragging {
+  cursor: grabbing;
+}
+
+.bubble {
+  position: relative;
+  width: 208px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.bubble.self {
+  width: 132px;
+}
+
+.bubble video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bubble.mirror video {
+  transform: scaleX(-1);
+}
+
+.bubble .initial {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: linear-gradient(160deg, var(--surface-3), var(--surface));
+  color: var(--label-2);
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.bubble.self .initial {
+  font-size: 22px;
+}
+
+.bubble.off .initial {
+  display: grid;
+}
+
+.bubble.off video {
+  visibility: hidden;
+}
+
+.bubble .name {
+  position: absolute;
+  left: 9px;
+  bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.muted-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--red);
+}
+
+.muted-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.bubble.mic-off .muted-badge {
+  display: grid;
+}
+
+/* ---------- HUD, kalpler ---------- */
+
+.hud {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  padding: 12px 18px;
+  border-radius: 16px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition: opacity 0.25s var(--ease), transform 0.35s var(--spring);
+}
+
+.hud.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.hud svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.hearts {
+  position: absolute;
+  right: 18%;
+  bottom: 120px;
+  z-index: 6;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.heart {
+  position: absolute;
+  bottom: 0;
+  color: var(--pink);
+  animation: rise 2.6s var(--ease) forwards;
+}
+
+.heart svg {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 4px 12px rgba(255, 55, 95, 0.5));
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(var(--dx1), -50px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx2), -52vh) scale(0.9);
+  }
+}
+
+/* ---------- Bağlantı bilgisi paneli ---------- */
+
+.panel {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 8;
+  width: min(360px, calc(100% - 32px));
+  padding: 14px;
+  border-radius: var(--r);
+  animation: pop 0.3s var(--spring);
+}
+
+.panel h3 {
+  margin: 0 0 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.panel .inset {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.panel .row {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.panel .row span:last-child {
+  color: var(--label-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Ayarlar sayfası ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.5);
+  animation: fade 0.2s var(--ease);
+}
+
+.sheet {
+  width: min(520px, 100%);
+  max-height: min(740px, 100%);
+  overflow: auto;
+  padding: 0 16px 22px;
+  border-radius: 20px;
+  background: #111113;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: pop 0.38s var(--spring);
+}
+
+.sheet header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0 6px;
+  background: #111113;
+}
+
+.sheet header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.sheet header .text-btn {
+  position: absolute;
+  right: 0;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Dar ekran ---------- */
+
+@media (max-width: 640px) {
+  .bubble {
+    width: 140px;
+  }
+
+  .bubble.self {
+    width: 92px;
+  }
+
+  .cams[data-corner^='b'] {
+    bottom: 140px;
+  }
+
+  #volume,
+  #presenceText {
+    display: none;
+  }
+
+  .controls {
+    bottom: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

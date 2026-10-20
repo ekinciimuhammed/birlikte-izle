@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Birlikte İzle · YouTube</title>
+    <style>
+      html,
+      body,
+      #player {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="player"></div>
+    <script>
+      // Birlikte İzle'nin YouTube aracısı. Uygulama bu sayfayı çerçevede açar; burası resmî IFrame
+      // API'siyle oynatıcıyı kurar. Komutlar ve oynatma durumu postMessage ile gider gelir.
+      // (YouTube'un betiği uygulamanın kendi sayfasında değil, bu ayrı sayfada çalışır.)
+      'use strict';
+      var player = null;
+      var playerReady = false;
+      var apiReady = false;
+      var pending = null;
+      var volume = null; // oynatıcı hazır olmadan gelen ses ayarı
+
+      function applyVolume() {
+        if (!volume || !playerReady) return;
+        player.setVolume(Math.max(0, Math.min(100, Number(volume.v) || 0)));
+        if (volume.muted) player.mute();
+        else player.unMute();
+      }
+
+      function send(msg) {
+        msg.birlikteYT = 1;
+        parent.postMessage(msg, '*');
+      }
+
+      function report() {
+        if (!player || !playerReady) return;
+        var data = player.getVideoData ? player.getVideoData() : null;
+        send({
+          type: 'state',
+          state: player.getPlayerState(),
+          time: player.getCurrentTime() || 0,
+          duration: player.getDuration() || 0,
+          rate: player.getPlaybackRate() || 1,
+          title: (data && data.title) || '',
+        });
+      }
+
+      function load(m) {
+        if (!apiReady) {
+          pending = m;
+          return;
+        }
+        var start = Math.max(0, Number(m.start) || 0);
+        if (player && playerReady) {
+          var args = { videoId: m.id, startSeconds: start };
+          if (m.autoplay) player.loadVideoById(args);
+          else player.cueVideoById(args);
+          return;
+        }
+        if (player) {
+          pending = m; // oynatıcı kuruluyor: hazır olunca bunu aç
+          return;
+        }
+        player = new YT.Player('player', {
+          videoId: m.id,
+          host: 'https://www.youtube-nocookie.com',
+          playerVars: {
+            autoplay: m.autoplay ? 1 : 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            playsinline: 1,
+            rel: 0,
+            start: Math.floor(start),
+          },
+          events: {
+            onReady: function () {
+              playerReady = true;
+              applyVolume();
+              if (start % 1) player.seekTo(start, true);
+              report();
+              if (pending) {
+                var next = pending;
+                pending = null;
+                load(next);
+              }
+            },
+            onStateChange: report,
+            onPlaybackRateChange: report,
+            onError: function (e) {
+              send({ type: 'error', code: e.data });
+            },
+          },
+        });
+      }
+
+      window.onYouTubeIframeAPIReady = function () {
+        apiReady = true;
+        if (pending) load(pending);
+        pending = null;
+      };
+
+      window.addEventListener('message', function (e) {
+        var m = e.data;
+        if (e.source !== parent || !m || !m.birlikteYT) return;
+        if (m.cmd === 'load') return load(m);
+        if (m.cmd === 'volume') {
+          volume = m;
+          return applyVolume();
+        }
+        if (!player || !playerReady) return;
+        switch (m.cmd) {
+          case 'play':
+            player.playVideo();
+            break;
+          case 'pause':
+            player.pauseVideo();
+            break;
+          case 'seek':
+            player.seekTo(Number(m.t) || 0, true);
+            break;
+          case 'rate':
+            player.setPlaybackRate(Number(m.r) || 1);
+            break;
+          case 'stop':
+            player.stopVideo();
+            break;
+        }
+        report();
+      });
+
+      setInterval(report, 250);
+      send({ type: 'ready' });
+    </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+  </body>
+</html>

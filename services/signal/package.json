@@ -1,0 +1,21 @@
+{
+  "name": "@birlikte/signal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eşleşme, oda (varlık + P2P sinyalleri) ve TURN bilgisi: Cloudflare Worker + Durable Object",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/web-dizini.mjs && wrangler dev --port 8787",
+    "deploy": "npm run build:web -w @birlikte/desktop && wrangler deploy",
+    "test": "node test/smoke.mjs",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@birlikte/protocol": "*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.151.2"
+  }
+}

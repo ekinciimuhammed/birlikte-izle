@@ -1,0 +1,76 @@
+/* Tasarım değişkenleri: renkler, köşeler, yazı, hareket.
+   Apple HIG koyu tema renkleri; vurgu rengi ayarlardan değişir. */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #000;
+  --bg-elevated: #0e0e10;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+
+  --label: #f5f5f7;
+  --label-2: rgba(235, 235, 245, 0.62);
+  --label-3: rgba(235, 235, 245, 0.34);
+  --label-4: rgba(235, 235, 245, 0.18);
+  --separator: rgba(84, 84, 88, 0.6);
+
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-2: rgba(120, 120, 128, 0.24);
+  --fill-3: rgba(120, 120, 128, 0.14);
+
+  --glass: rgba(30, 30, 32, 0.62);
+  --glass-strong: rgba(28, 28, 30, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.09);
+
+  --accent: #ff375f;
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --blue: #0a84ff;
+  --pink: #ff375f;
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', 'Segoe UI Variable Text', system-ui,
+    sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Variable', 'Segoe UI Variable Display',
+    system-ui, sans-serif;
+
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --spring: cubic-bezier(0.2, 0.9, 0.25, 1.12);
+
+  /* Pencere başlığı: Windows'ta sağda, Mac'te solda sistem düğmeleri var */
+  --titlebar: 44px;
+  --titlebar-left: 16px;
+  --titlebar-right: 16px;
+}
+
+[data-platform='win32'] {
+  --titlebar-right: 150px;
+}
+
+[data-platform='darwin'] {
+  --titlebar-left: 88px;
+}
+
+[data-accent='blue'] {
+  --accent: #0a84ff;
+}
+
+[data-accent='purple'] {
+  --accent: #bf5af2;
+}
+
+[data-accent='orange'] {
+  --accent: #ff9f0a;
+}
+
+[data-accent='green'] {
+  --accent: #30d158;
+}

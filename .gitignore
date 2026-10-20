@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+*.log
+.env
+.DS_Store
+.dev.vars
+.wrangler/
+apps/desktop/test/output/
+release/
+services/signal/web/
