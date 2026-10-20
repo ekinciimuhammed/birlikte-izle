@@ -147,6 +147,8 @@ export const PeerMessage = z.discriminatedUnion('t', [
     micOn: z.boolean(),
     /** Masaüstü uygulaması mı? (dosya alma ve senkron mod sadece masaüstünde) */
     desktop: z.boolean().optional(),
+    /** Uygulama sürümü: taraflardan biri eskiyse uyarılır (0.3.5 öncesi göndermez) */
+    version: z.string().max(20).optional(),
   }),
   z.object({
     t: z.literal('media'),

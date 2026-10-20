@@ -509,6 +509,69 @@
   transition: width 0.35s var(--spring);
 }
 
+/* Boyutlandırırken genişlik anında değişsin (yaylanma gecikmesi olmasın) */
+.cams.resizing .bubble {
+  transition: none;
+}
+
+/* Köşedeki boyutlandırma tutamacı: baloncukların durduğu köşeye göre ekranın ortasına bakar */
+.bubble-resize {
+  position: absolute;
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+  touch-action: none;
+}
+
+.bubble:hover .bubble-resize,
+.cams.resizing .bubble-resize {
+  opacity: 1;
+}
+
+.bubble-resize::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-right: 2px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.cams[data-corner='tl'] .bubble-resize {
+  right: 4px;
+  bottom: 4px;
+  cursor: nwse-resize;
+}
+
+.cams[data-corner='br'] .bubble-resize {
+  top: 4px;
+  left: 4px;
+  cursor: nwse-resize;
+  transform: rotate(180deg);
+}
+
+.cams[data-corner='tr'] .bubble-resize {
+  bottom: 4px;
+  left: 4px;
+  cursor: nesw-resize;
+  transform: rotate(90deg);
+}
+
+.cams[data-corner='bl'] .bubble-resize {
+  top: 4px;
+  right: 4px;
+  cursor: nesw-resize;
+  transform: rotate(-90deg);
+}
+
+/* Baloncukları taşırken/boyutlandırırken uygulama içindeki sayfa fareyi kapmasın */
+body.cams-busy .movie.web {
+  pointer-events: none;
+}
+
 .bubble .media-slot {
   position: absolute;
   inset: 0;

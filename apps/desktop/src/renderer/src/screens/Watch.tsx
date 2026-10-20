@@ -450,14 +450,16 @@ function Notice() {
   );
 }
 
-/** Uzun süre bağlanılamayınca sebebi (kapatılabilir; bağlanınca kendiliğinden kalkar) */
+/** Uzun süre bağlanılamayınca sebebi ya da sürüm uyarısı (kapatılabilir; durum düzelince kendiliğinden kalkar) */
 function ConnectionHelp() {
   const help = useWatch((s) => s.connectionHelp);
-  if (!help) return null;
+  const version = useWatch((s) => s.versionNotice);
+  const text = help ?? version;
+  if (!text) return null;
   return (
     <div className="empty-notice connection-help" role="alert">
-      <span>{help}</span>
-      <button type="button" aria-label="Kapat" onClick={() => useWatch.setState({ connectionHelp: null })}>
+      <span>{text}</span>
+      <button type="button" aria-label="Kapat" onClick={() => useWatch.setState(help ? { connectionHelp: null } : { versionNotice: null })}>
         <X />
       </button>
     </div>
@@ -574,23 +576,97 @@ function useNarrow() {
   return narrow;
 }
 
-/** Kamera baloncukları: sürükle, bırakınca en yakın köşeye yaylanarak otursun. */
+type CamWho = 'peer' | 'self';
+const CAM_WIDTH_KEY = { peer: 'ui.camPeerWidth', self: 'ui.camSelfWidth' } as const;
+/** Köşedeki tutamacın sürükleme yönü (baloncuklar hangi köşedeyse tutamaç ekranın ortasına bakar) */
+const RESIZE_DIR: Record<string, [number, number]> = { tl: [1, 1], tr: [-1, 1], bl: [1, -1], br: [-1, -1] };
+const camMaxWidth = () => Math.round(Math.min(960, innerWidth * 0.6));
+const clampCam = (w: number) => Math.round(Math.max(100, Math.min(camMaxWidth(), w)));
+/** Sürüklerken uygulama içindeki sayfa fareyi kapmasın */
+const camsBusy = (on: boolean) => document.body.classList.toggle('cams-busy', on);
+
+/**
+ * Kamera baloncukları: sürükle, bırakınca en yakın köşeye yaylanarak otursun. Köşedeki tutamaçla
+ * her biri ayrı ayrı boyutlandırılır (hatırlanır); onunkine çift tıklayınca büyür / eski boyuna döner.
+ */
 function CamBubbles({ name }: { name: string }) {
   const { peerHere, peerCamOn, peerMicOn, camOn, micOn } = useWatch();
   const me = useSetting('profile.name');
   const mirror = useSetting('camera.mirror');
   const size = useSetting('camera.bubbleSize') as keyof typeof SIZES;
   const corner = useSetting('ui.camCorner');
+  const peerCustom = Number(useSetting('ui.camPeerWidth')) || 0;
+  const selfCustom = Number(useSetting('ui.camSelfWidth')) || 0;
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const resize = useRef<{ who: CamWho; x: number; y: number; from: number } | null>(null);
+  const [resizing, setResizing] = useState<{ who: CamWho; width: number } | null>(null);
+  const [zoomed, setZoomed] = useState(false);
   const narrow = useNarrow();
   const table = narrow ? COMPACT_SIZES : SIZES;
   const [big, small] = table[size] ?? table.medium;
+
+  // Ayarlar → Kamera'dan hazır boy seçilince köşeden verilen boyutlar sıfırlanır.
+  const lastSize = useRef(size);
+  useEffect(() => {
+    if (lastSize.current === size) return;
+    lastSize.current = size;
+    setSetting('ui.camPeerWidth', 0);
+    setSetting('ui.camSelfWidth', 0);
+    setZoomed(false);
+  }, [size]);
+
+  const widthOf = (who: CamWho) => {
+    if (narrow) return who === 'peer' ? big : small;
+    if (resizing?.who === who) return resizing.width;
+    if (who === 'peer' && zoomed) return camMaxWidth();
+    const custom = who === 'peer' ? peerCustom : selfCustom;
+    return custom ? clampCam(custom) : who === 'peer' ? big : small;
+  };
+
+  const startResize = (who: CamWho) => (e: ReactPointerEvent<HTMLSpanElement>) => {
+    e.stopPropagation(); // baloncukları taşıma başlamasın
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resize.current = { who, x: e.clientX, y: e.clientY, from: widthOf(who) };
+    setResizing({ who, width: widthOf(who) });
+    camsBusy(true);
+  };
+  const moveResize = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    const r = resize.current;
+    if (!r) return;
+    const [sx, sy] = RESIZE_DIR[corner as string] ?? RESIZE_DIR.br!;
+    const dx = (e.clientX - r.x) * sx;
+    const dy = (e.clientY - r.y) * sy * (16 / 9); // yükseklik değişimini genişliğe çevir
+    setResizing({ who: r.who, width: clampCam(r.from + (Math.abs(dx) >= Math.abs(dy) ? dx : dy)) });
+  };
+  const endResize = () => {
+    const r = resize.current;
+    resize.current = null;
+    camsBusy(false);
+    if (!r || !resizing) return setResizing(null);
+    setSetting(CAM_WIDTH_KEY[r.who], resizing.width);
+    if (r.who === 'peer') setZoomed(false);
+    setResizing(null);
+  };
+  const handle = (who: CamWho) =>
+    narrow ? undefined : (
+      <span
+        className="bubble-resize"
+        role="separator"
+        aria-label="Boyutlandır"
+        onPointerDown={startResize(who)}
+        onPointerMove={moveResize}
+        onPointerUp={endResize}
+        onPointerCancel={endResize}
+        onDoubleClick={(e) => e.stopPropagation()}
+      />
+    );
 
   const end = () => {
     const el = box.current;
     const d = drag.current;
     drag.current = null;
+    camsBusy(false);
     if (!el || !d?.moved) return;
     el.classList.remove('dragging');
     const before = el.getBoundingClientRect();
@@ -610,18 +686,24 @@ function CamBubbles({ name }: { name: string }) {
   return (
     <div
       ref={box}
-      className="cams"
+      className={cx('cams', resizing && 'resizing')}
       data-corner={corner}
       onPointerDown={(e) => {
         drag.current = { x: e.clientX, y: e.clientY, moved: false };
-        e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         const d = drag.current;
         if (!d) return;
+        // Düğme baloncuğun dışında bırakıldıysa (fare yakalanmadan önce) sürükleme yok
+        if (!e.buttons) return void (drag.current = null);
         const dx = e.clientX - d.x;
         const dy = e.clientY - d.y;
         if (!d.moved && Math.hypot(dx, dy) < 4) return;
+        if (!d.moved) {
+          // Fare ancak sürükleme başlayınca yakalanır; yoksa tıklamalar (çift tıkla büyüt) baloncuğa ulaşmaz.
+          e.currentTarget.setPointerCapture(e.pointerId);
+          camsBusy(true);
+        }
         d.moved = true;
         e.currentTarget.classList.add('dragging');
         e.currentTarget.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -630,11 +712,19 @@ function CamBubbles({ name }: { name: string }) {
       onPointerCancel={end}
     >
       {peerHere && (
-        <Bubble width={big} off={!peerCamOn} micOff={!peerMicOn} name={name} label={name}>
+        <Bubble
+          width={widthOf('peer')}
+          off={!peerCamOn}
+          micOff={!peerMicOn}
+          name={name}
+          label={name}
+          resize={handle('peer')}
+          onDoubleClick={narrow ? undefined : () => setZoomed((z) => !z)}
+        >
           <MediaSlot element={watch.remoteCam} className="cam-video" />
         </Bubble>
       )}
-      <Bubble width={small} off={!camOn} micOff={!micOn} name={me} mirror={mirror}>
+      <Bubble width={widthOf('self')} off={!camOn} micOff={!micOn} name={me} mirror={mirror} resize={handle('self')}>
         <MediaSlot element={watch.localCam} className="cam-video" />
       </Bubble>
     </div>
@@ -648,6 +738,8 @@ function Bubble({
   name,
   label,
   mirror,
+  resize,
+  onDoubleClick,
   children,
 }: {
   width: number;
@@ -656,11 +748,15 @@ function Bubble({
   name: string;
   label?: string;
   mirror?: boolean;
+  /** Köşedeki boyutlandırma tutamacı */
+  resize?: ReactNode;
+  onDoubleClick?: () => void;
   children: ReactNode;
 }) {
   return (
-    <div className={cx('bubble', off && 'off', mirror && 'mirror')} style={{ width }}>
+    <div className={cx('bubble', off && 'off', mirror && 'mirror')} style={{ width }} onDoubleClick={onDoubleClick}>
       {children}
+      {resize}
       <span className="bubble-initial" style={{ fontSize: width * 0.16 }}>
         {(name || '?').charAt(0).toLocaleUpperCase('tr-TR')}
       </span>

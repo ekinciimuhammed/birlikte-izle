@@ -90,6 +90,8 @@ export interface WatchState {
   notice: string | null;
   /** Uzun süre bağlanılamayınca sebebi (bağlantı testinin sonucu) */
   connectionHelp: string | null;
+  /** Taraflardan birinin uygulaması eski: güncellemesi gerekiyor */
+  versionNotice: string | null;
   reactions: { id: number; kind: Reaction }[];
   stats: StatsSummary | null;
   /** Tarayıcıdaki ya da uygulama içindeki canlı yayın: zaman çubuğu yerine "CANLI" */
@@ -127,6 +129,7 @@ const initialState = (): WatchState => ({
   hud: null,
   notice: null,
   connectionHelp: null,
+  versionNotice: null,
   reactions: [],
   stats: null,
   live: false,
@@ -145,6 +148,17 @@ function mediaElement({ muted = false, autoplay = false } = {}) {
   v.autoplay = autoplay;
   v.muted = muted;
   return v;
+}
+
+/** "0.3.4" gibi sürümleri karşılaştırır: a eskiyse < 0 */
+function compareVersions(a: string, b: string) {
+  const x = a.split('.').map(Number);
+  const y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d) return d;
+  }
+  return 0;
 }
 
 /** Ayarlar'da aktarma (TURN) kapalıysa TURN sunucuları çıkarılır. */
@@ -180,6 +194,7 @@ class WatchController {
   private helpTimer: ReturnType<typeof setTimeout> | undefined; // uzun süre bağlanılamazsa sebebini bul
   private iceTimer: ReturnType<typeof setInterval> | undefined; // TURN kimlik bilgilerini tazele
   private iceFetchedAt = 0;
+  private appVersion = ''; // karşı tarafa bildirilir; biri eskiyse uyarılır
   private stats: StatsSummary | null = null;
 
   // Sabit akış kimlikleri: karşı taraf filmi ve kamerayı bu kimliklerle ayırt eder.
@@ -306,6 +321,7 @@ class WatchController {
       this.webview?.setFocus(s.source === 'web' && s.role !== 'idle' && s.webFocus);
     });
     onSettingChange((key, value, origin) => this.onSetting(key, value, origin));
+    bridge.version?.().then((v) => (this.appVersion = v), () => {});
     bridge.media?.onProgress((p) => {
       if (p.id === this.media?.id && get().preparing && !get().preparing?.byPeer) this.setPreparing(p.ratio);
     });
@@ -497,7 +513,7 @@ class WatchController {
     this.remoteCam.srcObject = null;
     this.ducker.stop();
     if (get().role === 'guest') this.becomeIdle();
-    set({ connection: 'alone', peerHere: false, peerCamOn: false, peerMicOn: false, stats: null });
+    set({ connection: 'alone', peerHere: false, peerCamOn: false, peerMicOn: false, versionNotice: null, stats: null });
   }
 
   /** 20 sn'de bağlanamazsak sonsuz "bağlanıyor" yerine sebebini bul ve göster. */
@@ -570,6 +586,7 @@ class WatchController {
       camOn: !!this.camTrack,
       micOn: this.micOn(),
       desktop: !!bridge.media,
+      version: this.appVersion || undefined,
     });
     this.clock.start();
     if (get().role === 'host') {
@@ -584,9 +601,23 @@ class WatchController {
     this.hud(`${this.partnerName()} burada`, 'heart');
   }
 
+  /** Masaüstü uygulamaları farklı sürümdeyse uyar (kanallar gibi yenilikler eski sürümde çalışmaz) */
+  private checkVersions(desktop: boolean | undefined, peer: string | undefined) {
+    const mine = this.appVersion;
+    if (!desktop || !mine) return set({ versionNotice: null });
+    const who = this.partnerName();
+    if (!peer || compareVersions(peer, mine) < 0) {
+      set({ versionNotice: `${who} eski bir sürüm kullanıyor (${peer ?? '0.3.4 ya da öncesi'}). Kanallar gibi yenilikler onda çalışmaz; ${mine} sürümünü kurması gerekiyor.` });
+    } else if (compareVersions(peer, mine) > 0) {
+      set({ versionNotice: `${who} daha yeni bir sürümde (${peer}). Kanallar gibi yenilikler için sen de güncelle (Releases).` });
+    } else {
+      set({ versionNotice: null });
+    }
+  }
+
   private onChannelClose() {
     const wasHere = get().peerHere;
-    set({ peerHere: false, peerCamOn: false, peerMicOn: false, connection: this.link ? 'reconnecting' : 'alone' });
+    set({ peerHere: false, peerCamOn: false, peerMicOn: false, versionNotice: null, connection: this.link ? 'reconnecting' : 'alone' });
     if (this.link) this.armConnectionHelp();
     this.ducker.stop();
     this.clock.stop();
@@ -613,6 +644,7 @@ class WatchController {
         this.peerStreams = { movie: m.movieStream, cam: m.camStream };
         set({ peerCamOn: m.camOn, peerMicOn: m.micOn, peerDesktop: !!m.desktop });
         this.bindRemoteStreams();
+        this.checkVersions(m.desktop, m.version);
         break;
 
       case 'preparing':

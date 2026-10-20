@@ -379,6 +379,9 @@ export const SETTINGS = {
   'pairing.partnerId': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '' }),
   'pairing.partnerName': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '' }),
   'ui.camCorner': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 'br' }),
+  // Kamera baloncuklarının köşeden çekilerek verilen genişliği (px); 0: Ayarlar → Kamera'daki hazır boy
+  'ui.camPeerWidth': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 0 }),
+  'ui.camSelfWidth': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 0 }),
   'ui.volume': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 1 }),
   'history.items': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '[]' }),
   'stats.together': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '{}' }),

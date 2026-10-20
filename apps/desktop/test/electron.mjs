@@ -230,6 +230,44 @@ try {
     });
   check('A kamera baloncukları dürüst (canlı ya da kapalı)', await until(A, camsHonest, null, 8000));
   check('B kamera baloncukları dürüst (canlı ya da kapalı)', await until(B, camsHonest, null, 8000));
+
+  // Kamera baloncuğu köşedeki tutamaçtan çekilerek boyutlanır, hatırlanır; çift tıklayınca büyür
+  const peerBubble = A.locator('.cams .bubble').first();
+  const bubbleWidth = async () => Math.round((await peerBubble.boundingBox()).width);
+  const w0 = await bubbleWidth();
+  await peerBubble.hover();
+  const grip = await peerBubble.locator('.bubble-resize').boundingBox();
+  // Baloncuklar sağ altta: tutamaç sol üst köşede, sola/yukarı çekince büyür
+  await A.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await A.mouse.down();
+  await A.mouse.move(grip.x + grip.width / 2 - 140, grip.y + grip.height / 2 - 20, { steps: 10 });
+  await A.mouse.up();
+  await A.waitForTimeout(500);
+  const w1 = await bubbleWidth();
+  check('kamera: köşeden çekince büyüdü', w1 >= w0 + 100, `${w0} → ${w1} px`);
+  check('kamera: boyut hatırlanıyor', Math.abs(Number(await A.evaluate(() => window.__birlikte.getSetting('ui.camPeerWidth'))) - w1) <= 2);
+  await peerBubble.dblclick();
+  await A.waitForTimeout(500);
+  const w2 = await bubbleWidth();
+  check('kamera: çift tıklayınca büyüdü', w2 > w1 + 40, `${w1} → ${w2} px`);
+  await peerBubble.dblclick();
+  await A.waitForTimeout(500);
+  check('kamera: tekrar çift tıklayınca eski boyuna döndü', Math.abs((await bubbleWidth()) - w1) <= 2);
+  const pb = await peerBubble.boundingBox();
+  await A.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
+  await A.mouse.down();
+  await A.mouse.move(120, 160, { steps: 12 });
+  await A.mouse.up();
+  check('kamera: sürükleyince sol üst köşeye taşındı', await until(A, () => window.__birlikte.getSetting('ui.camCorner') === 'tl', null, 2000));
+
+  // Sürüm uyarısı: aynı sürümde yok (sürüm gerçekten gönderiliyor); biri eskiyse/yeniyse uyarır
+  check('sürüm: aynı sürümde uyarı yok', (await A.evaluate(() => window.__birlikte.state().versionNotice)) === null);
+  await A.evaluate(() => window.__birlikte.watch['checkVersions'](true, '0.3.0'));
+  check('sürüm: karşı taraf eskiyse uyarıyor', await visible(A.locator('.connection-help', { hasText: 'eski bir sürüm' }), 2000));
+  await A.evaluate(() => window.__birlikte.watch['checkVersions'](true, '99.0.0'));
+  check('sürüm: karşı taraf yeniyse "sen de güncelle"', await visible(A.locator('.connection-help', { hasText: 'sen de güncelle' }), 2000));
+  await A.evaluate(() => window.birlikte.version().then((v) => window.__birlikte.watch['checkVersions'](true, v)));
+  check('sürüm: aynı sürüme dönünce uyarı kalktı', await until(A, () => !document.querySelector('.connection-help'), null, 2000));
   check('pencerelerde hata yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 
   // Bağlanılamayınca sonsuz "bağlanıyor" yerine sebep: B aktarmayı "Her zaman" yapar ama sunucuda TURN yok.

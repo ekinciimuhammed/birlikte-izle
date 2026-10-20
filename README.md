@@ -8,7 +8,7 @@ Uzakta olsanız da yan yana gibi: biri dizi açar, öbürü aynı anda izler. İ
 - **Kayıpsız izleme:** Bölüm ikinizde de varsa ikiniz de kendi kopyanızdan, tam kalitede ve senkron izlersiniz. Yoksa "Bölümü ona gönder" ile karşıya gider.
 - **Kanallar:** atv, Kanal D, Show TV, Star TV, NOW, TV8 canlı yayınları ve YouTube uygulamanın içinde açılır; tarayıcıya gitmeye gerek yok.
 - **Netflix ve diğerleri:** Netflix, Disney+, Prime Video, TV+, Exxen, Gain, tabii… şifreli olduğu için tarayıcıda oynar; tarayıcı eklentisi onları uygulamaya bağlar.
-- **Kamera:** Arka planı bulanıklaştırma (bilgisayarda işlenir), "birlikte izlediğiniz saatler" kartı.
+- **Kamera:** Baloncukları istediğin köşeye taşı, köşedeki tutamaçtan istediğin boyuta getir; arka planı bulanıklaştırma (bilgisayarda işlenir), "birlikte izlediğiniz saatler" kartı.
 
 Yol haritası ve durum: [PLAN.md](PLAN.md)
 
@@ -79,6 +79,10 @@ Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 
 Eklenti uygulamaya sadece bu bilgisayarın içinden (`127.0.0.1`, kapı 47652) bağlanır; uygulama sadece bu eklentinin kimliğini kabul eder. Chrome Web Mağazası'na yüklenirse mağaza yeni bir kimlik verir: `BIRLIKTE_EXT_IDS=<kimlik>` ile eklenebilir.
+
+## Kamera baloncukları
+
+Baloncukları sürükleyip istediğin köşeye bırak. Fareyle üstüne gelince köşede çıkan tutamaçtan çekerek her birini ayrı ayrı istediğin boyuta getir (uygulama hatırlar; herkes kendi ekranını ayarlar). Onun baloncuğuna çift tıklayınca büyür, tekrar çift tıklayınca eski boyuna döner. **Ayarlar → Kamera → Baloncuk boyutu**'ndan hazır bir boy seçince çekerek verilen boyutlar sıfırlanır.
 
 ## Kamera arka planı
 
@@ -214,6 +218,7 @@ Her ayar `apps/desktop/src/renderer/src/settings/definitions.ts` dosyasında bir
 - **"Sunucuya ulaşılamadı":** `npm run dev:signal` açık mı, ya da Ayarlar → Bağlantı → Gelişmiş'teki adres doğru mu?
 - **"Bu dosya açılamadı":** Dosya bozuk olabilir. Masaüstü uygulaması her formatı açar; tarayıcı sürümü sadece tarayıcının çalabildiklerini açar.
 - **iPhone'da "film paylaşamıyor":** Safari film yayınlayamaz. iPhone'dan izlenir ve kontrol edilir; filmi bilgisayardaki taraf açar. YouTube bağlantısı iPhone'dan da açılabilir.
+- **"… eski bir sürüm kullanıyor":** Uygulamalar bağlanınca sürümlerini birbirine bildirir; biri eskiyse kanallar gibi yenilikler onda çalışmaz. Eski olan taraf Releases'ten son sürümü kurmalı.
 - **"Tarayıcı eklentisi bağlı değil":** Uygulama açık mı? Tarayıcıda eklenti etkin mi (`chrome://extensions`)? Eklenti uygulamayı yarım dakikada bir arar; tarayıcıda bir video sitesi açmak da hemen bağlanmasını sağlar.
 - **YouTube videosu açılmıyor:** Sahibi başka sitelerde oynatılmasını kapatmışsa uygulama bunu söyler ve videoyu tarayıcıda açar; eklenti kuruluysa oradan "Birlikte izle" ile devam edilir. Sinyal sunucusu yayında mı (`yt.html` oradan gelir)? Sunucu adresi IP ise (ör. `http://192.168.1.5:8787`) bazı kanallar oynatmaz; alan adı ya da `localhost` kullan.
 - **Testler "Process failed to launch" ile düşüyor (Windows):** Çok sayıda test art arda çalışınca geçici portlar tükenebiliyor (`netstat -ano | find /c "TIME_WAIT"`). Birkaç dakika bekle ya da bilgisayarı yeniden başlat.
