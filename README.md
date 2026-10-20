@@ -6,7 +6,7 @@ Uzakta olsanız da yan yana gibi: biri dizi açar, öbürü aynı anda izler. İ
 - **Her işletim sistemi:** Windows, macOS (Apple Silicon + Intel), Linux. Otomatik güncellenir.
 - **Her cihaz:** Kurmadan, tarayıcıdan (telefondan da) katılabilir.
 - **Kayıpsız izleme:** Bölüm ikinizde de varsa ikiniz de kendi kopyanızdan, tam kalitede ve senkron izlersiniz. Yoksa "Bölümü ona gönder" ile karşıya gider.
-- **YouTube, Netflix ve diğerleri:** YouTube bağlantısı yapıştır; Netflix, Disney+, Prime Video, Exxen, BluTV, Gain, tabii… için tarayıcı eklentisi.
+- **YouTube, Netflix ve diğerleri:** YouTube bağlantısı yapıştır; Netflix, Disney+, Prime Video, TV+, Exxen, BluTV, Gain, tabii, kanalların kendi siteleri… için tarayıcı eklentisi.
 - **Kamera:** Arka planı bulanıklaştırma (bilgisayarda işlenir), "birlikte izlediğiniz saatler" kartı.
 
 Yol haritası ve durum: [PLAN.md](PLAN.md)
@@ -53,13 +53,17 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 
 ## Netflix ve diğerleri (tarayıcı eklentisi)
 
-Netflix, Disney+, Prime Video, Max, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). Kamera ve ses uygulamada kalır; **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
+Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Kanalların kendi sitelerindeki ücretsiz bölümler de olur: atv, Kanal D, Show TV, Star TV, NOW ve TV8. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). Kamera ve ses uygulamada kalır; **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
+
+Reklamlı sitelerde reklam araları ikinizi de bekletir: birinde reklam girince video durur, bitince birlikte devam edersiniz. atv'de video oynat düğmesine basınca, NOW'da çerez sorusunu cevaplayınca başlar.
 
 İkinizde de bir kez kurulur (Chrome, Edge, Brave ya da Opera):
 
 1. Uygulamada **Ayarlar → Genel → Netflix ve diğerleri → Klasörü aç** (geliştirirken: `apps/extension`).
 2. Tarayıcıda `chrome://extensions` (Edge: `edge://extensions`) → **Geliştirici modu**nu aç.
-3. **Paketlenmemiş öğe yükle** → açılan klasörü seç.
+3. **Paketlenmemiş öğe yükle** → açılan klasörü seç. Mac'te klasör uygulamanın içinde olduğu için seçim penceresi oraya girmez: pencerede **⌘⇧G**'ye basıp `/Applications/Birlikte Izle.app/Contents/Resources/extension` yaz.
+
+Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç); yeni siteler o zaman gelir.
 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 

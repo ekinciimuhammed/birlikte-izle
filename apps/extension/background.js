@@ -1,7 +1,7 @@
 // Birlikte İzle eklentisi, arka plan: bu bilgisayarda açık olan Birlikte İzle uygulamasına yerel bir
 // WebSocket ile bağlanır (127.0.0.1, dışarıya kapalı). Sekmedeki oynatıcı ile uygulama arasında
 // aracıdır: durum uygulamaya gider, uygulamanın komutları (oynat, durdur, sar, aç) sekmeye.
-/* global birlikteAllowedUrl, birlikteSite */
+/* global birlikteAllowedUrl, birlikteSite, birlikteCleanUrl, birlikteCleanTitle */
 importScripts('sites.js');
 
 const PORTS = [47652, 47653, 47654];
@@ -10,6 +10,8 @@ const VERSION = chrome.runtime.getManifest().version;
 let ws = null;
 let connecting = false;
 let activeTab = null; // kontrol edilen sekme
+let activeFrame = null; // o sekmede videonun olduğu çerçeve (oynatıcı iframe'de olabilir); null: henüz bilinmiyor
+let heardAt = 0; // kontrol edilen çerçeveden son haber
 let lastVideo = null; // { tab, ...video }
 let lastState = null;
 
@@ -87,7 +89,7 @@ function browserName() {
 async function onApp(msg) {
   if (msg.t === 'ping') return toApp({ t: 'pong' });
   if (msg.t === 'cmd' && activeTab != null) {
-    chrome.tabs.sendMessage(activeTab, msg).catch(() => {});
+    chrome.tabs.sendMessage(activeTab, msg, activeFrame == null ? undefined : { frameId: activeFrame }).catch(() => {});
     return;
   }
   if (msg.t === 'open' && typeof msg.url === 'string' && birlikteAllowedUrl(msg.url)) {
@@ -114,22 +116,49 @@ async function openUrl(url) {
   } else {
     const tab = await chrome.tabs.create({ url, active: true });
     activeTab = tab.id;
+    activeFrame = null;
   }
 }
 
-/** Bu sekmeyi kontrol et ve oynatıcısının bilgisini uygulamaya bildir */
-function activate(tab) {
+/** Bu sekmeyi (ya da sekmedeki bir çerçeveyi) kontrol et ve oynatıcısının bilgisini uygulamaya bildir */
+function activate(tab, frame = null) {
   activeTab = tab;
-  chrome.tabs.sendMessage(tab, { t: 'probe' }).then(
-    (r) => {
+  activeFrame = frame;
+  chrome.tabs.sendMessage(tab, { t: 'probe' }, frame == null ? undefined : { frameId: frame }).then(
+    async (r) => {
       if (!r || activeTab !== tab) return;
-      lastVideo = { ...r.video, tab };
+      const page = r.video.top ? null : await chrome.tabs.get(tab).catch(() => null);
+      lastVideo = { ...pageInfo(r.video, page), tab };
       lastState = r.state;
       toApp(lastVideo);
       toApp(lastState);
     },
     () => {},
   );
+}
+
+/** Oynatıcı iframe'deyse paylaşılacak bağlantı ve başlık sekmenin kendisinden (izleme sayfası) gelir. */
+function pageInfo({ top, ...video }, tab) {
+  if (top || !tab?.url) return video;
+  const site = birlikteSite(tab.url);
+  return { ...video, url: birlikteCleanUrl(tab.url), title: birlikteCleanTitle(tab.title ?? '', site?.name ?? '') || video.title };
+}
+
+/**
+ * Bu çerçeve kontrol edilen mi? Aynı sekmede başka bir çerçeve: oynamaya başladıysa ya da kontrol
+ * edilenden 4 sn'dir haber yoksa (sayfa değişti, eski çerçeve gitti) artık o.
+ */
+function claim(tab, frame, playing) {
+  if (tab !== activeTab) return false;
+  if (activeFrame === frame || activeFrame === null) {
+    activeFrame = frame;
+    heardAt = Date.now();
+    return true;
+  }
+  if (!playing && Date.now() - heardAt < 4000) return false;
+  activate(tab, frame); // yeni çerçevenin video bilgisini de al
+  heardAt = Date.now();
+  return true;
 }
 
 // --- Sekmelerden gelenler ----------------------------------------------------------------------
@@ -141,19 +170,21 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   const tab = sender.tab?.id;
   if (tab == null || !birlikteSite(sender.tab.url ?? sender.url ?? '')) return;
+  const frame = sender.frameId ?? 0;
   if (msg.t === 'video') {
     // İlk bulunan ya da oynamaya başlayan sekme kontrol edilir.
     if (activeTab == null) activeTab = tab;
-    if (tab !== activeTab) return;
-    lastVideo = { ...msg, tab };
+    if (!claim(tab, frame, false)) return;
+    lastVideo = { ...pageInfo(msg, sender.tab), tab };
     toApp(lastVideo);
   } else if (msg.t === 'state') {
-    if (tab !== activeTab && msg.playing) activate(tab); // başka sekmede oynatıldı: artık o
-    if (tab !== activeTab) return;
+    if (tab !== activeTab && msg.playing) activate(tab, frame); // başka sekmede oynatıldı: artık o
+    if (!claim(tab, frame, msg.playing)) return;
     lastState = msg;
     toApp(msg);
-  } else if (msg.t === 'gone' && tab === activeTab) {
+  } else if (msg.t === 'gone' && tab === activeTab && frame === activeFrame) {
     lastVideo = lastState = null;
+    heardAt = 0; // sayfadaki başka bir çerçeve hemen devralabilir
     toApp({ t: 'gone' });
   }
   connect();
@@ -162,6 +193,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 chrome.tabs.onRemoved.addListener((tab) => {
   if (tab !== activeTab) return;
   activeTab = null;
+  activeFrame = null;
   lastVideo = lastState = null;
   toApp({ t: 'gone' });
 });

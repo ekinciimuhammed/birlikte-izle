@@ -333,7 +333,7 @@ function BrowserExtension() {
   return (
     <ListSection
       title="Netflix ve diğerleri"
-      footer="Netflix, Disney+, Prime Video, Max, Exxen, BluTV, Gain, tabii, MUBI ve YouTube tarayıcıda oynar; eklenti oradaki oynatıcıyı bu uygulamaya bağlar. İkiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz; kamera ve ses burada kalır. İkinizde de eklenti kurulu olmalı."
+      footer="Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, MUBI, YouTube ve kanalların kendi siteleri (atv, Kanal D, Show TV, Star TV, NOW, TV8) tarayıcıda oynar; eklenti oradaki oynatıcıyı bu uygulamaya bağlar. İkiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz; kamera ve ses burada kalır. İkinizde de eklenti kurulu olmalı. Uygulama güncellenince eklentiler sayfasında eklentiyi yenileyin."
     >
       <ListRow label="Tarayıcı eklentisi">
         <span className="row-value">
@@ -352,6 +352,13 @@ function BrowserExtension() {
               </li>
               <li>
                 <b>Paketlenmemiş öğe yükle</b>'ye bas ve eklenti klasörünü seç
+                {bridge.platform === 'darwin' && (
+                  <>
+                    {' '}
+                    (Mac'te klasör uygulamanın içinde: seçim penceresinde <b>⌘⇧G</b>'ye basıp{' '}
+                    <code>/Applications/Birlikte Izle.app/Contents/Resources/extension</code> yaz)
+                  </>
+                )}
               </li>
             </ol>
           }

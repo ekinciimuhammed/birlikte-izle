@@ -1,8 +1,10 @@
 // Tarayıcı eklentisi testi (gerçek Electron ×2 + eklentili gerçek Edge ×2 + Netflix'i taklit eden
 // yerel bir video sitesi): A tarayıcıda bölüm açar, uygulamada "Birlikte izle"ye basar; B'nin
 // tarayıcısında aynı sayfa kendiliğinden açılır ve senkron oynar. Uygulamadan da tarayıcıdan da
-// (elle durdurma/oynatma/sarma) kontrol iki tarafa geçiyor mu?   →  npm run test:extension
+// (elle durdurma/oynatma/sarma) kontrol iki tarafa geçiyor mu? Oynatıcı iframe içindeyken de
+// (Kanal D, TV8 gibi) bulunuyor mu?   →  npm run test:extension
 // Not: Chrome 137+ komut satırından eklenti yüklemeyi kapattı; test Edge ile çalışır (yoksa atlanır).
+// EDGE_PATH ile eklenti yükleyebilen başka bir Chromium da verilebilir (ör. Playwright'ın Chrome for Testing'i).
 
 import { createReadStream, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -25,10 +27,12 @@ if (!EDGE) {
 }
 
 const { check, finish, fail } = createChecks();
+const BROWSER_NAME = /edge/i.test(EDGE) ? 'Edge' : 'Chrome';
 const EXT = join(ROOT, '..', 'extension');
 const VIDEO = makeBigFixture(); // 60 sn
 const SITE_PORT = 8797;
 const PAGE = `http://127.0.0.1:${SITE_PORT}/izle/bolum-1`;
+const PAGE_IFRAME = `http://127.0.0.1:${SITE_PORT}/izle/bolum-2`; // oynatıcı iframe içinde
 
 // "Video sitesi": izleme sayfası + parça parça (Range) video
 const site = createServer((req, res) => {
@@ -46,6 +50,14 @@ const site = createServer((req, res) => {
     return createReadStream(VIDEO, { start, end }).pipe(res);
   }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  if (req.url.startsWith('/izle/bolum-2')) {
+    return res.end(`<!doctype html><title>Deneme Dizisi 2. Bölüm | Yerel sunucu</title>
+      <body style="margin:0;background:#000"><iframe src="/oynatici/bolum-2" style="width:960px;height:540px;border:0"></iframe></body>`);
+  }
+  if (req.url.startsWith('/oynatici/')) {
+    return res.end(`<!doctype html><title>Oynatıcı</title>
+      <body style="margin:0;background:#000"><video src="/video.mp4" style="width:100%;height:100%" preload="auto"></video></body>`);
+  }
   res.end(`<!doctype html><title>Deneme Dizisi 1. Bölüm | Yerel sunucu</title>
     <body style="margin:0;background:#000"><video src="/video.mp4" style="width:960px;height:540px" preload="auto"></video></body>`);
 }).listen(SITE_PORT, '127.0.0.1');
@@ -69,7 +81,18 @@ async function launchEdge(port) {
   });
   browsers.push(ctx);
   const sw = ctx.serviceWorkers()[0] ?? (await ctx.waitForEvent('serviceworker'));
-  await sw.evaluate((p) => chrome.storage.local.set({ port: p }).then(() => connect()), port);
+  // Eklenti açılır açılmaz varsayılan kapıyı dener; bu bilgisayarda gerçek uygulama açıksa ona
+  // bağlanmış olabilir: test kapısını yazdıktan sonra o bağlantıyı bırakıp yeniden bağlan.
+  await sw.evaluate(async (p) => {
+    await chrome.storage.local.set({ port: p });
+    while (connecting) await new Promise((r) => setTimeout(r, 100));
+    if (ws) {
+      const old = ws;
+      ws = null;
+      old.close();
+    }
+    await connect();
+  }, port);
   return ctx;
 }
 
@@ -97,7 +120,7 @@ try {
   const EB = await launchEdge(47712);
   check('A uygulaması eklentiyi gördü', await until(A, () => window.__birlikte.extension().connected, null, 15_000));
   check('B uygulaması eklentiyi gördü', await until(B, () => window.__birlikte.extension().connected, null, 15_000));
-  check('tarayıcı adı geldi (Edge)', (await A.evaluate(() => window.__birlikte.extension().browser)) === 'Edge');
+  check(`tarayıcı adı geldi (${BROWSER_NAME})`, (await A.evaluate(() => window.__birlikte.extension().browser)) === BROWSER_NAME);
 
   // --- A tarayıcıda bölümü açar, uygulamada "Birlikte izle" ---------------------------------
   const pa = await EA.newPage();
@@ -146,6 +169,26 @@ try {
 
   await cmd(A, 'pause');
   check('A uygulamadan durdurdu → iki tarayıcı da durdu', (await paused(pa)) && (await paused(pb)));
+
+  // --- Oynatıcı iframe içinde (Kanal D, TV8 gibi) ------------------------------------------------
+  await pa.goto(PAGE_IFRAME);
+  check(
+    'iframe: video bulundu, paylaşılan bağlantı izleme sayfası',
+    await until(A, (u) => window.__birlikte.extension().video?.url === u, PAGE_IFRAME, 15_000),
+    await A.evaluate(() => window.__birlikte.extension().video?.url ?? '-'),
+  );
+  check('iframe: başlık izleme sayfasından', /Deneme Dizisi 2\. Bölüm/.test(await A.evaluate(() => window.__birlikte.extension().video?.title ?? '')));
+  const player = pa.frames().find((f) => f.url().includes('/oynatici/'));
+  await cmd(A, 'play');
+  check(
+    'iframe: uygulamadan oynatınca iframe\'deki video oynuyor',
+    await player.waitForFunction(() => !document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false),
+  );
+  await cmd(A, 'pause');
+  check(
+    'iframe: uygulamadan durdurunca duruyor',
+    await player.waitForFunction(() => document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false),
+  );
 
   await A.screenshot({ path: join(OUT, 'eklenti-A.png') });
   await B.screenshot({ path: join(OUT, 'eklenti-B.png') });

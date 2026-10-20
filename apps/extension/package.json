@@ -1,6 +1,6 @@
 {
   "name": "@birlikte/extension",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "private": true,
   "description": "Birlikte İzle tarayıcı eklentisi (Chrome, Edge, Brave, Opera): Netflix ve diğer siteleri senkron izlemek için"
 }

@@ -1,7 +1,8 @@
 // Sayfadaki oynatıcı: en büyük <video>'yu bulur, durumunu arka plana bildirir ve uygulamadan gelen
 // komutları (oynat, durdur, sar, hız, ses) uygular. Netflix'te sarma sitenin kendi oynatıcısıyla
 // yapılır (videoya doğrudan dokunmak Netflix'i bozar): bu iş netflix.js'e (sayfanın kendi dünyası).
-/* global birlikteSite, birlikteCleanUrl */
+// Sayfadaki iframe'lerde de çalışır (Kanal D, TV8: oynatıcı iframe içinde); videosu olmayan çerçeve sessiz kalır.
+/* global birlikteSite, birlikteCleanUrl, birlikteCleanTitle */
 
 (() => {
   if (window.__birlikteContent) return;
@@ -63,8 +64,7 @@
       if (el && el.innerText.trim()) return el.innerText.trim().replace(/\s*\n+\s*/g, ' · ');
     }
     const name = site ? site.name : '';
-    const t = document.title.replace(new RegExp(`\\s*[|\\-–—]\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'), '').trim();
-    return t || name;
+    return birlikteCleanTitle(document.title, name) || name;
   }
 
   function state() {
@@ -94,6 +94,8 @@
       title: title(),
       url: birlikteCleanUrl(location.href),
       duration: Number.isFinite(video.duration) ? video.duration : 0,
+      // iframe'deysek bağlantı ve başlık oynatıcınınki olur; arka plan onları sekmeden (izleme sayfası) alır.
+      top: window === window.top,
     };
   }
 
@@ -129,7 +131,8 @@
 
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (msg.t === 'probe') {
-      reply(video ? { video: info(), state: state() } : null);
+      // Videosu olmayan çerçeve cevap vermez: sekmedeki ilk cevap videonun olduğu çerçeveden gelsin.
+      if (video) reply({ video: info(), state: state() });
       return;
     }
     if (msg.t !== 'cmd' || !video) return;

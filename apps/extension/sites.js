@@ -1,6 +1,6 @@
 // Desteklenen siteler: adları ve bağlantı temizleme. Hem sayfa betiği (content.js) hem arka plan
 // (background.js) kullanır. Yeni site eklemek: buraya bir satır + manifest.json'daki iki listeye.
-/* exported BIRLIKTE_SITES, birlikteSite, birlikteAllowedUrl, birlikteCleanUrl */
+/* exported BIRLIKTE_SITES, birlikteSite, birlikteAllowedUrl, birlikteCleanUrl, birlikteCleanTitle */
 
 var BIRLIKTE_SITES = [
   { host: 'netflix.com', name: 'Netflix' },
@@ -21,6 +21,14 @@ var BIRLIKTE_SITES = [
   { host: 'mubi.com', name: 'MUBI' },
   { host: 'tv.apple.com', name: 'Apple TV+' },
   { host: 'crunchyroll.com', name: 'Crunchyroll' },
+  { host: 'tvplus.com.tr', name: 'TV+' },
+  // Kanalların kendi siteleri: bölümler ücretsiz (reklamlı). Kanal D ve TV8'de oynatıcı iframe içinde.
+  { host: 'atv.com.tr', name: 'atv' },
+  { host: 'kanald.com.tr', name: 'Kanal D' },
+  { host: 'showtv.com.tr', name: 'Show TV' },
+  { host: 'startv.com.tr', name: 'Star TV' },
+  { host: 'nowtv.com.tr', name: 'NOW' },
+  { host: 'tv8.com.tr', name: 'TV8' },
   // Bu bilgisayardaki ya da evdeki sunucular (Jellyfin, Plex…) ve test sayfası
   { host: 'localhost', name: 'Yerel sunucu', http: true },
   { host: '127.0.0.1', name: 'Yerel sunucu', http: true },
@@ -59,4 +67,10 @@ function birlikteCleanUrl(href) {
   url.search = keep.toString();
   url.hash = '';
   return url.href;
+}
+
+/** Sekme başlığından site adıyla biten son kısmı atar: "Bölüm | Netflix", "Bölüm | … Son Bölüm İzle atv" */
+function birlikteCleanTitle(title, siteName) {
+  const name = siteName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return title.replace(new RegExp(`\\s*[|\\-–—][^|\\-–—]*?\\b${name}\\s*$`, 'i'), '').trim();
 }
