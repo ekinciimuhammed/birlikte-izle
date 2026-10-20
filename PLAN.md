@@ -114,19 +114,41 @@ Hedef: hangi dosya, hangi işletim sistemi, hangi cihaz olursa olsun çalışsı
 
 ## Faz 3 — Senkron mod
 
-- [ ] Dosya ikimizde de varsa: yayın yok, iki taraf kendi kopyasını oynatır (sıfır kalite kaybı)
-- [ ] Dosya eşleştirme (boyut + kısmi hash)
-- [ ] Saat farkı ölçümü (ping/pong) + kayma düzeltme (küçük hız ayarı / büyük farkta sarma)
-- [ ] "Bölümü ona gönder": P2P dosya aktarımı, ilerleme çubuğu
-- [ ] YouTube senkronu (IFrame API)
+- [x] Dosya ikimizde de varsa: yayın yok, iki taraf kendi kopyasını oynatır (sıfır kalite kaybı); host film yayınını kapatır
+- [x] Dosya eşleştirme: boyut + baştan/ortadan/sondan 1'er MB'ın SHA-1'i; İndirilenler, Birlikte İzle klasörü ve geçmişteki klasörlerde kendiliğinden arama; "Bende de var…" ile elle (süreleri tutan farklı kopya da olur)
+- [x] Saat farkı ölçümü (ping/pong, en kısa gidiş-dönüşlü ölçümler) + kayma düzeltme: küçük farkta hız %±5, 1 sn'den büyükte sarma; sarmadan sonra kalan küçük fark bir kez daha sararak kapatılır
+- [x] Biri takılırsa (disk, YouTube yükleniyor) öbürü bekler (en fazla 15 sn)
+- [x] "Bölümü ona gönder": P2P ayrı veri kanalı, akış denetimi, ilerleme hapı, iptal, yarıda kalırsa kaldığı yerden (.part)
+- [x] YouTube senkronu: sunucudaki aracı sayfa (`yt.html`) IFrame API'yi çalıştırır; uzak betik uygulamanın sayfasına girmez
+- [x] Ayarlar: "Bende de varsa kendi kopyamdan oynat", "Gönderdiği bölümleri kabul et"
+
+**Testler:** senkron 42/42 · YouTube (gerçek YouTube) 18/18. Ölçülen fark: dosyada 0–30 ms, YouTube'da 14–76 ms.
+
+**Öğrenilenler**
+- Host, sarma bitmeden "şuradayım" derse guest sarma süresi kadar ileride kalıyor. Host artık `seeked` olayından sonra bildiriyor; guest de kendi sarma süresini öğrenip o kadar ileri sarıyor.
+- YouTube `getAvailablePlaybackRates()` sadece 0,25'lik adımları sayıyor ama 1,05 / 0,95 de kabul ediliyor (ölçüldü): YouTube'da da hızla ince ayar yapılabiliyor.
+- YouTube, `file://` sayfalara gömmeye izin vermiyor (yönlendiren adres yok): kurulu uygulama aracı sayfayı sinyal sunucusundan açıyor.
+- Bazı kanallar (ör. dizi kanalları) IP adresinden gömülen oynatıcıyı reddediyor (hata 150) ama `localhost`'tan ve gerçek alan adından oynuyor (ölçüldü). Aracı sayfa artık 127.0.0.1 yerine her zaman `localhost`'tan açılıyor. Sahibi gömmeyi tamamen kapatmışsa video tarayıcıda açılıyor; eklentiyle yine birlikte izleniyor.
 
 ---
 
 ## Faz 4 — İsteğe bağlı
 
-- [ ] Kendi hesaplarımızla Netflix vb. için tarayıcı eklentisi (oynatıcı senkronu, yayın yok)
-- [ ] Kamera arka plan bulanıklaştırma
-- [ ] "Birlikte izlediğimiz saatler" istatistiği
+- [x] Netflix vb. için tarayıcı eklentisi (`apps/extension`, Chrome/Edge/Brave/Opera): ikimiz de kendi hesabımızla, kendi tarayıcımızda; oynat/durdur/sar uygulamadan da tarayıcıdan da iki tarafa geçer. Karşının tarayıcısında aynı bölüm kendiliğinden açılır. Netflix'te sarma sitenin kendi oynatıcısıyla. Kamerası "resim içinde resim" ile tarayıcının üstünde kalabilir.
+- [x] Kamera arka plan bulanıklaştırma (MediaPipe selfie modeli, bu bilgisayarda; Hafif / Güçlü)
+- [x] "Birlikte izlediğimiz saatler": ana ekranda toplam süre, bölüm sayısı, son 7 gün
+- [ ] **Senin yapacakların:** iki bilgisayarda da eklentiyi yükle (README → "Netflix ve diğerleri"), gerçek Netflix'le dene
+
+**Testler:** eklenti 21/21 (iki uygulama + eklentili iki Edge + yerel video sitesi) · kamera 9/9 (keskin kenarlar ‰9,6 → 0) · paket 6/6 (eklenti klasörü pakette).
+
+**Öğrenilenler**
+- Chrome 137+ komut satırından eklenti yüklemeyi kapattı; otomatik test Edge ile. Kullanıcılar için "Paketlenmemiş öğe yükle" Chrome'da da çalışıyor.
+- Eklenti kimliği manifest'teki `key`den türüyor: paketlenmemiş yüklemede de her bilgisayarda aynı. Uygulama sadece bu kimlikten gelen yerel bağlantıyı kabul ediyor.
+- Tarayıcıda elle yapılanı (durdur/oynat) zaman penceresiyle değil "istediğim durum gerçekleşti mi" takibiyle ayırt etmek gerekiyor; yoksa hızlı art arda yapılan işlemler kayboluyor.
+- İki taraf aynı anda iz eklediğinde Chromium bazen yeni teklifi "RTP extension ID reassignment" ile reddediyor. Artık reddedilen teklif ya da cevapsız kalan teklif temiz bir oturumla kurtarılıyor.
+- MediaPipe modeli `fetch()` ile yükleniyor; kurulu uygulamada sayfa `file://` olduğu için model koda gömüldü (250 KB). WebAssembly için CSP'ye `wasm-unsafe-eval` eklendi.
+- Uygulama İndirilenler'i taradığında macOS izin sorar: Info.plist'e Türkçe açıklamalar eklendi.
+- Testleri art arda çok kez çalıştırınca Windows'un geçici port havuzu (16.384) TIME_WAIT bağlantılarıyla doluyor; Electron'un hata ayıklama portu açılamıyor ve testler "failed to launch" ile düşüyor. Uygulamadan değil; testler tek tek ya da yeniden başlatmadan sonra geçiyor.
 
 ---
 

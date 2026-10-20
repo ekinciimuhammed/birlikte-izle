@@ -112,6 +112,44 @@
   font-size: 13px;
 }
 
+.empty-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: min(440px, 100%);
+  margin: -8px auto 20px;
+  padding: 10px 8px 10px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
+  color: var(--label);
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.empty-notice span {
+  flex: 1;
+}
+
+.empty-notice button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--label-2);
+  cursor: pointer;
+}
+
+.empty-notice svg {
+  width: 14px;
+  height: 14px;
+}
+
 .yt-field {
   display: flex;
   align-items: center;

@@ -8,6 +8,8 @@ import { createChecks, enterWatch, OUT, pair, startPair, until, visible } from '
 
 // YouTube'un kendi geliştirici videosu (gömmeye açık, uzun)
 const LINK = 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
+// Bir dizi kanalının videosu: IP adresinden (127.0.0.1) gömülünce hata 150 veriyor, localhost'tan oynuyor
+const TV_LINK = 'https://www.youtube.com/watch?v=tVuz-7n_eeA';
 
 const online = await fetch('https://www.youtube.com/iframe_api', { signal: AbortSignal.timeout(8000) }).then(
   (r) => r.ok,
@@ -68,9 +70,15 @@ try {
   await A.screenshot({ path: join(OUT, 'youtube-A.png') });
   await B.screenshot({ path: join(OUT, 'youtube-B.png') });
 
-  // Dosya açınca YouTube kapanır, yayın geri gelir
   check('YouTube oynatıcısı ekranda', await visible(B.locator('.youtube iframe'), 2000));
-  const real = errors.filter((e) => !/favicon|Autofill|youtube|googlevideo|doubleclick|ERR_BLOCKED|Permissions-Policy/i.test(e));
+
+  // Yerel sunucu 127.0.0.1'de; aracı sayfa yine de localhost'tan açılmalı (yoksa bu video hata 150)
+  check("aracı sayfa localhost'tan",/^http:\/\/localhost:8793\/yt/.test(await A.evaluate(() => document.querySelector('.youtube iframe').src)));
+  await A.evaluate((l) => window.__birlikte.watch.openYouTube(l), TV_LINK);
+  check('dizi kanalının videosu da açıldı (hata 150 yok)', await until(A, () => window.__birlikte.watch.youtube.duration > 300 && /Altı Üstü/.test(window.__birlikte.state().title), null, 40_000), await A.evaluate(() => window.__birlikte.state().notice ?? window.__birlikte.state().title));
+  check('B de aynı videoyu açtı', await until(B, () => window.__birlikte.state().syncMode && /Altı Üstü/.test(window.__birlikte.state().title), null, 40_000));
+  // YouTube'un kendi oynatıcısının (iç çerçeve) uyarıları bizim kodumuz değil.
+  const real = errors.filter((e) => !/favicon|Autofill|youtube|googlevideo|doubleclick|ERR_BLOCKED|Permissions[- ]policy/i.test(e));
   check('konsolda hata yok', real.length === 0, real.slice(0, 3).join(' | '));
 } catch (err) {
   console.error(err);

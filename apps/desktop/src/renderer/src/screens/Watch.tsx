@@ -25,6 +25,7 @@ import {
   Volume2,
   VolumeX,
   WifiOff,
+  X,
 } from 'lucide-react';
 import {
   useEffect,
@@ -386,6 +387,7 @@ function EmptyState({ name, peerHere, onPick }: { name: string; peerHere: boolea
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h2>{peerHere ? `${name} burada` : `${name} bekleniyor`}</h2>
           <p>{name} bir bölüm açınca film burada başlayacak. Sen de oynatıp durdurabileceksin.</p>
+          <Notice />
           <YouTubeField />
         </motion.div>
       </div>
@@ -400,6 +402,7 @@ function EmptyState({ name, peerHere, onPick }: { name: string; peerHere: boolea
       >
         <h2>{peerHere ? `${name} burada` : 'Bir bölüm seç'}</h2>
         <p>{text}</p>
+        <Notice />
         <Button size="large" onClick={onPick}>
           <FolderOpen />
           Dosya Seç
@@ -410,6 +413,20 @@ function EmptyState({ name, peerHere, onPick }: { name: string; peerHere: boolea
         <YouTubeField />
         <BrowserOffer />
       </motion.div>
+    </div>
+  );
+}
+
+/** Boş ekranda kalıcı açıklama (kapatılabilir) */
+function Notice() {
+  const notice = useWatch((s) => s.notice);
+  if (!notice) return null;
+  return (
+    <div className="empty-notice" role="status">
+      <span>{notice}</span>
+      <button type="button" aria-label="Kapat" onClick={() => useWatch.setState({ notice: null })}>
+        <X />
+      </button>
     </div>
   );
 }

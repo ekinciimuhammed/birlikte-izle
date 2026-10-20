@@ -14,7 +14,7 @@ import { BackgroundBlur } from '../media/background';
 import { BrowserPlayer, useExtension } from '../media/browser';
 import { MoviePlayer, type Playable, type WebVideo } from '../media/player';
 import { audioLabel, pickAudio, planPlayback, type Step } from '../media/playback';
-import { YouTubePlayer, youtubeId, youtubeStart } from '../media/youtube';
+import { YouTubeError, YouTubePlayer, youtubeId, youtubeStart } from '../media/youtube';
 import { fetchIceServers } from '../net/api';
 import { Link } from '../net/link';
 import type { RoomClient } from '../net/room';
@@ -82,6 +82,8 @@ export interface WatchState {
   peerFile: FileRef | null;
   transfer: TransferView | null;
   hud: { id: number; text: string; icon: HudIcon } | null;
+  /** Boş ekranda kalıcı açıklama (ör. "bu video uygulamada oynatılamıyor") */
+  notice: string | null;
   reactions: { id: number; kind: Reaction }[];
   stats: StatsSummary | null;
 }
@@ -113,6 +115,7 @@ const initialState = (): WatchState => ({
   peerFile: null,
   transfer: null,
   hud: null,
+  notice: null,
   reactions: [],
   stats: null,
 });
@@ -538,6 +541,7 @@ class WatchController {
         if (this.syncFor !== key) this.exitSync(false);
         this.peerAudioLanguage = m.audioLanguage ?? null;
         set({
+          notice: null,
           role: 'guest',
           title: m.title,
           duration: m.duration,
@@ -813,7 +817,7 @@ class WatchController {
     if (clearSubtitles) this.subtitles.clear();
     this.usePlayer(player);
     if (player.kind === 'file') this.ensureCapture();
-    set({ role: 'host', title, pos: 0, duration: 0, playing: false, source: player.kind });
+    set({ role: 'host', title, pos: 0, duration: 0, playing: false, source: player.kind, notice: null });
     this.updateStatus();
     this.updateDucking();
   }
@@ -1304,9 +1308,10 @@ class WatchController {
       await this.youtube.load(id, youtubeStart(input));
     } catch (err) {
       if (token !== this.loadToken) return;
-      this.hud(err instanceof Error ? err.message : 'YouTube videosu açılamadı.', 'video-off');
       this.stopHosting();
       this.becomeIdle();
+      if (err instanceof YouTubeError && err.embedBlocked) return this.openYouTubeInBrowser(id);
+      this.hud(err instanceof Error ? err.message : 'YouTube videosu açılamadı.', 'video-off');
       return;
     }
     if (token !== this.loadToken) return;
@@ -1314,6 +1319,25 @@ class WatchController {
     this.updateStatus();
     this.sendMedia();
     this.broadcast();
+  }
+
+  /**
+   * Sahibi uygulama içinde (gömülü) oynatmayı kapatmışsa video sadece YouTube'un kendi sitesinde
+   * oynar: tarayıcıda açılır, eklenti bağlıysa oradan yine birlikte izlenir.
+   */
+  private openYouTubeInBrowser(id: string) {
+    const url = `https://www.youtube.com/watch?v=${id}`;
+    const ext = useExtension.getState();
+    const why = 'Bu videonun sahibi, YouTube dışında oynatılmasına izin vermiyor.';
+    if (ext.connected) {
+      bridge.extension?.send({ t: 'open', url });
+      set({ notice: `${why} Tarayıcında açtım; aşağıda “Birlikte izle”ye bas.` });
+    } else if (ext.available) {
+      window.open(url, '_blank', 'noopener');
+      set({ notice: `${why} Tarayıcında açtım; birlikte izlemek için tarayıcı eklentisini kur (Ayarlar → Genel).` });
+    } else {
+      set({ notice: why });
+    }
   }
 
   /** Host'ta başlık sonradan gelirse (YouTube, tarayıcı) güncelle */

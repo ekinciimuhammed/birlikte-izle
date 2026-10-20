@@ -46,6 +46,8 @@ try {
       await B.waitForTimeout(300);
     }
   }
+  // Durdurma bildirimi birkaç yüz ms sonra gelir; o arada tahmini konum gösterilir.
+  await until(B, () => document.querySelector('.time')?.textContent === '0:06', null, 3000);
   const timeShown = await B.evaluate(() => ({
     label: document.querySelector('.time')?.textContent,
     range: document.querySelector('.timeline .range')?.value,

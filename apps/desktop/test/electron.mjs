@@ -71,12 +71,18 @@ for (const event of ['uncaughtException', 'unhandledRejection']) {
 
 try {
   const launch = async (profile, who) => {
-    const app = await electron.launch({
+    const options = {
       executablePath: require('electron'),
       args: ['.', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--mute-audio'],
       cwd: ROOT,
       // VS Code eklentileri gibi bazı ortamlar bunu tanımlar; Electron'u düz Node'a çevirir.
       env: { ...withoutRunAsNode(), BIRLIKTE_PROFILE: profile, BIRLIKTE_TEST: '1', BIRLIKTE_TEST_SLOT: who === 'B' ? '1' : '0' },
+    };
+    // Windows'ta Playwright bazen ilk denemede bağlanamıyor: bir kez daha dene.
+    const app = await electron.launch(options).catch(async (err) => {
+      if (!/failed to launch|Timeout|ETIMEDOUT|WebSocket error/i.test(String(err))) throw err;
+      await new Promise((r) => setTimeout(r, 2000));
+      return electron.launch(options);
     });
     apps.push(app);
     const page = await app.firstWindow();

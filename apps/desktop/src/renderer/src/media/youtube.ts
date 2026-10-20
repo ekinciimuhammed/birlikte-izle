@@ -46,6 +46,18 @@ export function youtubeStart(input: string): number {
   return part('h') * 3600 + part('m') * 60 + part('s');
 }
 
+/** YouTube oynatıcısının hatası; kodlar: https://developers.google.com/youtube/iframe_api_reference#onError */
+export class YouTubeError extends Error {
+  constructor(readonly code: number) {
+    super(errorText(code));
+  }
+
+  /** Sahibi gömülü oynatmayı kapatmış (101/150): uygulamada değil, sadece YouTube'da oynar */
+  get embedBlocked() {
+    return this.code === 101 || this.code === 150;
+  }
+}
+
 function errorText(code: number) {
   if (code === 101 || code === 150) return 'Bu videonun sahibi başka yerlerde oynatılmasına izin vermiyor.';
   if (code === 100) return 'Bu video bulunamadı (kaldırılmış ya da gizli olabilir).';
@@ -55,8 +67,12 @@ function errorText(code: number) {
 
 /** Aracı sayfanın adresi: web sürümü ve geliştirme sayfası http(s)'ten gelir, aracı da oradan. */
 function relayUrl() {
-  if (location.protocol.startsWith('http')) return new URL('yt.html', location.href).href;
-  return `${getSetting('connection.server').replace(/\/+$/, '')}/yt.html`;
+  const base = location.protocol.startsWith('http') ? location.href : `${getSetting('connection.server').replace(/\/+$/, '')}/`;
+  const url = new URL('yt.html', base);
+  // Bazı kanallar (ör. dizi kanalları) IP adresinden gömülen oynatıcıyı reddediyor (hata 150);
+  // "localhost" ile aynı yerel sunucu sorunsuz oynuyor (ölçüldü).
+  if (url.hostname === '127.0.0.1' || url.hostname === '[::1]') url.hostname = 'localhost';
+  return url.href;
 }
 
 export class YouTubePlayer implements Playable {
@@ -218,7 +234,7 @@ export class YouTubePlayer implements Playable {
       return;
     }
     if (m.type === 'error') {
-      this.finishLoading(new Error(errorText(m.code)));
+      this.finishLoading(new YouTubeError(m.code));
       this.events.dispatchEvent(new CustomEvent('error', { detail: errorText(m.code) }));
       return;
     }

@@ -50,6 +50,10 @@ module.exports = {
     extendInfo: {
       NSCameraUsageDescription: 'Birlikte izlerken birbirinizi görebilmeniz için.',
       NSMicrophoneUsageDescription: 'Birlikte izlerken konuşabilmeniz için.',
+      // Senkron mod: onun açtığı bölüm sende de var mı diye bakılır; gönderdiği bölümler İndirilenler'e kaydedilir.
+      NSDownloadsFolderUsageDescription: 'Onun açtığı bölüm sende de varsa kendi kopyandan izlemen ve gönderdiği bölümleri kaydetmek için.',
+      NSDocumentsFolderUsageDescription: 'Daha önce açtığın klasörlerde aynı bölümü bulmak için.',
+      NSDesktopFolderUsageDescription: 'Daha önce açtığın klasörlerde aynı bölümü bulmak için.',
     },
   },
   dmg: { title: 'Birlikte İzle' },

@@ -41,7 +41,8 @@ function start(command, cwd, ready, env = {}) {
   const promise = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Başlamadı: ${command}`)), 90_000);
     const onData = (d) => {
-      if (d.toString().includes(ready)) {
+      // Renk kodları (FORCE_COLOR açıksa) "Local:" gibi metinleri böler: önce temizle.
+      if (d.toString().replace(/\x1b\[[0-9;]*m/g, '').includes(ready)) {
         clearTimeout(timer);
         resolve();
       }
@@ -84,6 +85,7 @@ try {
     pages.push(page);
     page.on('pageerror', (e) => errors.push(`${who}: ${e.message}`));
     page.on('console', (m) => m.type() === 'error' && errors.push(`${who}: ${m.text()}`));
+    if (process.env.DEBUG_RTC) page.on('console', (m) => m.type() === 'warning' && console.log(`   [${who} uyarı] ${m.text().slice(0, 300)}`));
     await page.goto(`http://localhost:${WEB_PORT}/`);
     return page;
   };
@@ -146,6 +148,24 @@ try {
   check('B, A\'nın kamerasını görüyor', camsOk);
   if (process.env.DEBUG_CAMS || !camsOk) {
     console.log('   B kameralar:', JSON.stringify(await B.evaluate(camState)));
+    // Bağlantı durumu: hangi izler pazarlıkta, kim kibar, sinyal durumu ne?
+    const rtc = () => {
+      const link = window.__birlikte.watch.link;
+      const pc = link?.pc;
+      return {
+        polite: link?.opts.polite,
+        signaling: pc?.signalingState,
+        conn: pc?.connectionState,
+        setupPending: link?.setupPending,
+        senders: [...(link?.senders ?? [])].map(([k, s]) => `${k}:${s.track?.readyState ?? 'yok'}`),
+        local: [...(link?.local ?? [])].map(([k, e]) => `${k}:${e.track ? 'var' : 'yok'}`),
+        tx: pc?.getTransceivers().map((t) => `${t.mid}:${t.receiver.track.kind}:${t.direction}/${t.currentDirection}`),
+        streams: [...window.__birlikte.watch.remoteStreams.keys()].map((id) => id.slice(0, 8)),
+        peer: window.__birlikte.watch.peerStreams,
+      };
+    };
+    console.log('   A rtc:', JSON.stringify(await A.evaluate(rtc)));
+    console.log('   B rtc:', JSON.stringify(await B.evaluate(rtc)));
     console.log('   A kameralar:', JSON.stringify(await A.evaluate(camState)));
   }
   await shot(A, '06-izleme-bos');

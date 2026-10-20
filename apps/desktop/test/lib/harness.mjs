@@ -138,7 +138,7 @@ export async function startPair({ port, run = Date.now().toString(36), guest = '
     };
     // Windows'ta art arda çalıştırınca Playwright bazen ilk denemede bağlanamıyor: bir kez daha dene.
     const app = await electron.launch(options).catch(async (err) => {
-      if (!/failed to launch|Timeout/i.test(String(err))) throw err;
+      if (!/failed to launch|Timeout|ETIMEDOUT|WebSocket error/i.test(String(err))) throw err;
       await new Promise((r) => setTimeout(r, 2000));
       return electron.launch(options);
     });

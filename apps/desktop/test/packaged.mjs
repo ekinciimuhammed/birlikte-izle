@@ -2,7 +2,7 @@
 // içindeki ffmpeg çalışıyor mu?  →  npm run dist:dir && npm run test:packaged
 
 import { existsSync, readdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { _electron as electron } from 'playwright-core';
 import { makeFixtures } from './lib/fixtures.mjs';
 import { APPDATA, createChecks, ROOT } from './lib/harness.mjs';
@@ -46,6 +46,9 @@ try {
   check('içindeki ffmpeg AC3 sesi dönüştürdü', url.startsWith('birlikte-media://prepared/'), url);
   const subs = await page.evaluate((id) => window.birlikte.media.subtitles(id), info.id);
   check('gömülü altyazıyı çıkardı', subs.some((s) => /Merhaba/.test(s.text ?? '')), `${subs.length} altyazı`);
+  // Tarayıcı eklentisi pakette (Ayarlar → "Klasörü aç" bunu gösterir)
+  const resources = process.platform === 'darwin' ? join(dirname(exe), '..', 'Resources') : join(dirname(exe), 'resources');
+  check('tarayıcı eklentisi pakette', existsSync(join(resources, 'extension', 'manifest.json')) && !existsSync(join(resources, 'extension', 'package.json')));
 } catch (err) {
   console.error(err);
   fail();
