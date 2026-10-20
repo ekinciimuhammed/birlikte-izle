@@ -260,6 +260,36 @@ try {
   await A.mouse.up();
   check('kamera: sürükleyince sol üst köşeye taşındı', await until(A, () => window.__birlikte.getSetting('ui.camCorner') === 'tl', null, 2000));
 
+  // Gizle/göster: sadece bu ekranda; kamera açık kalır, onun görüntü/ses öğesi durmaz (sesi kesilmez)
+  const peerVideo = () =>
+    A.evaluate(() => {
+      const v = document.querySelector('.cams .bubble video');
+      return v ? { paused: v.paused, inDoc: v.isConnected } : null;
+    });
+  const before = await peerVideo();
+  await A.keyboard.press('k');
+  check('gizle: K ile iki baloncuk da gizlendi', await until(A, () => [...document.querySelectorAll('.cams .bubble')].every((b) => b.classList.contains('hidden')), null, 2000));
+  check('gizle: köşede "Kameralar gizli · Göster" var', await visible(A.locator('.cams-hidden', { hasText: 'Kameralar gizli' }), 2000));
+  const during = await peerVideo();
+  check(
+    'gizle: onun görüntü/ses öğesi yerinde ve durmadı, kamera açık',
+    !!during?.inDoc && during.paused === before?.paused && (await A.evaluate(() => window.__birlikte.state().camOn)),
+    JSON.stringify({ before, during }),
+  );
+  await A.locator('.cams-hidden').click();
+  check('göster: tıklayınca geri geldi', await until(A, () => !document.querySelector('.cams .bubble.hidden') && !document.querySelector('.cams-hidden'), null, 2000));
+  await peerBubble.hover();
+  await peerBubble.locator('.bubble-hide').click();
+  check(
+    'tek tek: × ile sadece onunki gizlendi',
+    await until(A, () => {
+      const b = document.querySelectorAll('.cams .bubble');
+      return b[0].classList.contains('hidden') && !b[1].classList.contains('hidden');
+    }, null, 2000),
+  );
+  check('tek tek: köşede "Bade gizli · Göster"', await visible(A.locator('.cams-hidden', { hasText: 'Bade gizli' }), 2000));
+  await A.locator('.cams-hidden').click();
+
   // Sürüm uyarısı: aynı sürümde yok (sürüm gerçekten gönderiliyor); biri eskiyse/yeniyse uyarır
   check('sürüm: aynı sürümde uyarı yok', (await A.evaluate(() => window.__birlikte.state().versionNotice)) === null);
   await A.evaluate(() => window.__birlikte.watch['checkVersions'](true, '0.3.0'));

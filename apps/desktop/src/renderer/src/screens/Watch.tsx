@@ -7,6 +7,8 @@ import {
   Captions,
   ChevronLeft,
   Download,
+  Eye,
+  EyeOff,
   FastForward,
   Focus,
   FolderOpen,
@@ -105,6 +107,10 @@ export function Watch({
     };
   }, []);
   const showUi = uiVisible || !s.playing || s.role === 'idle';
+  // İki hook da her zaman çağrılmalı (&& ile kısa devre hook sırasını bozar)
+  const hidePeer = !!useSetting('ui.camHidePeer');
+  const hideSelf = !!useSetting('ui.camHideSelf');
+  const camsHidden = hidePeer && hideSelf;
 
   // --- Klavye -------------------------------------------------------------------------
   useEffect(() => {
@@ -120,6 +126,7 @@ export function Watch({
         KeyF: toggleFullscreen,
         KeyM: () => watch.toggleMic(),
         KeyC: () => watch.toggleCam(),
+        KeyK: () => toggleCams(),
         KeyH: () => watch.sendReaction('heart'),
         KeyS: () => watch.subtitles.toggle(),
         BracketLeft: () => watch.shiftSubtitles(-0.25),
@@ -311,6 +318,9 @@ export function Watch({
               </IconButton>
               <IconButton label="Kamera (C)" off={!s.camOn} onClick={() => watch.toggleCam()}>
                 {s.camOn ? <Video /> : <VideoOff />}
+              </IconButton>
+              <IconButton label={camsHidden ? 'Kameraları göster (K)' : 'Kameraları gizle (K)'} off={camsHidden} onClick={toggleCams}>
+                {camsHidden ? <EyeOff /> : <Eye />}
               </IconButton>
               <IconButton label="Tam ekran (F)" className="fs-btn" onClick={toggleFullscreen}>
                 {fullscreen ? <Minimize /> : <Maximize />}
@@ -577,6 +587,13 @@ function useNarrow() {
   return narrow;
 }
 
+/** K: iki baloncuğu birlikte gizle/göster (biri bile görünüyorsa ikisi de gizlenir). Sadece bu ekranda. */
+function toggleCams() {
+  const hide = !(getSetting('ui.camHidePeer') && getSetting('ui.camHideSelf'));
+  setSetting('ui.camHidePeer', hide);
+  setSetting('ui.camHideSelf', hide);
+}
+
 type CamWho = 'peer' | 'self';
 const CAM_WIDTH_KEY = { peer: 'ui.camPeerWidth', self: 'ui.camSelfWidth' } as const;
 /** Köşedeki tutamacın sürükleme yönü (baloncuklar hangi köşedeyse tutamaç ekranın ortasına bakar) */
@@ -597,6 +614,8 @@ function CamBubbles({ name }: { name: string }) {
   const size = useSetting('camera.bubbleSize') as keyof typeof SIZES;
   const corner = useSetting('ui.camCorner');
   const peerCustom = Number(useSetting('ui.camPeerWidth')) || 0;
+  const hidePeer = !!useSetting('ui.camHidePeer');
+  const hideSelf = !!useSetting('ui.camHideSelf');
   const selfCustom = Number(useSetting('ui.camSelfWidth')) || 0;
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -721,13 +740,37 @@ function CamBubbles({ name }: { name: string }) {
           label={name}
           resize={handle('peer')}
           onDoubleClick={narrow ? undefined : () => setZoomed((z) => !z)}
+          hidden={hidePeer}
+          onHide={() => setSetting('ui.camHidePeer', true)}
         >
           <MediaSlot element={watch.remoteCam} className="cam-video" />
         </Bubble>
       )}
-      <Bubble width={widthOf('self')} off={!camOn} micOff={!micOn} name={me} mirror={mirror} resize={handle('self')}>
+      <Bubble
+        width={widthOf('self')}
+        off={!camOn}
+        micOff={!micOn}
+        name={me}
+        mirror={mirror}
+        resize={handle('self')}
+        hidden={hideSelf}
+        onHide={() => setSetting('ui.camHideSelf', true)}
+      >
         <MediaSlot element={watch.localCam} className="cam-video" />
       </Bubble>
+      {((peerHere && hidePeer) || hideSelf) && (
+        <button
+          type="button"
+          className="cams-hidden glass"
+          onClick={() => {
+            setSetting('ui.camHidePeer', false);
+            setSetting('ui.camHideSelf', false);
+          }}
+        >
+          <EyeOff />
+          {(hidePeer || !peerHere) && hideSelf ? 'Kameralar gizli' : hidePeer ? `${name} gizli` : 'Görüntün gizli'} · Göster
+        </button>
+      )}
     </div>
   );
 }
@@ -741,6 +784,8 @@ function Bubble({
   mirror,
   resize,
   onDoubleClick,
+  hidden,
+  onHide,
   children,
 }: {
   width: number;
@@ -752,12 +797,31 @@ function Bubble({
   /** Köşedeki boyutlandırma tutamacı */
   resize?: ReactNode;
   onDoubleClick?: () => void;
+  /** Sadece bu ekranda gizli. Kaldırılmaz, görünmez olur: video öğesi DOM'dan çıkarsa durur ve sesi de kesilir. */
+  hidden?: boolean;
+  onHide?: () => void;
   children: ReactNode;
 }) {
   return (
-    <div className={cx('bubble', off && 'off', mirror && 'mirror')} style={{ width }} onDoubleClick={onDoubleClick}>
+    <div className={cx('bubble', off && 'off', mirror && 'mirror', hidden && 'hidden')} style={{ width }} onDoubleClick={onDoubleClick}>
       {children}
       {resize}
+      {onHide && (
+        <button
+          type="button"
+          className="bubble-hide"
+          aria-label="Gizle"
+          title="Gizle (kamera açık kalır)"
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onHide();
+          }}
+        >
+          <X />
+        </button>
+      )}
       <span className="bubble-initial" style={{ fontSize: width * 0.16 }}>
         {(name || '?').charAt(0).toLocaleUpperCase('tr-TR')}
       </span>

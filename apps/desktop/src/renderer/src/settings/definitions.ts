@@ -390,6 +390,9 @@ export const SETTINGS = {
   // Kamera baloncuklarının köşeden çekilerek verilen genişliği (px); 0: Ayarlar → Kamera'daki hazır boy
   'ui.camPeerWidth': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 0 }),
   'ui.camSelfWidth': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 0 }),
+  // Kamera baloncukları sadece bu ekranda gizli (kamera açık kalır, karşı taraf görmeye devam eder)
+  'ui.camHidePeer': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: false }),
+  'ui.camHideSelf': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: false }),
   'ui.volume': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: 1 }),
   'history.items': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '[]' }),
   'stats.together': defineSetting({ group: 'internal', label: '', control: { type: 'hidden' }, default: '{}' }),

@@ -259,6 +259,7 @@ const SHORTCUTS: [string, string[]][] = [
   ['Tam ekran', ['F']],
   ['Mikrofon', ['M']],
   ['Kamera', ['C']],
+  ['Kameraları gizle / göster', ['K']],
   ['Kalp gönder', ['H']],
   ['Altyazıyı aç / kapat', ['S']],
   ['Altyazı erken / geç', ['[', ']']],

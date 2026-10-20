@@ -88,7 +88,9 @@ Eklenti uygulamaya sadece bu bilgisayarın içinden (`127.0.0.1`, kapı 47652) b
 
 ## Kamera baloncukları
 
-Baloncukları sürükleyip istediğin köşeye bırak. Fareyle üstüne gelince köşede çıkan tutamaçtan çekerek her birini ayrı ayrı istediğin boyuta getir (uygulama hatırlar; herkes kendi ekranını ayarlar). Onun baloncuğuna çift tıklayınca büyür, tekrar çift tıklayınca eski boyuna döner. **Ayarlar → Kamera → Baloncuk boyutu**'ndan hazır bir boy seçince çekerek verilen boyutlar sıfırlanır.
+Baloncukları sürükleyip istediğin köşeye bırak. Fareyle üstüne gelince köşede çıkan tutamaçtan çekerek her birini ayrı ayrı istediğin boyuta getir (uygulama hatırlar; herkes kendi ekranını ayarlar). Onun baloncuğuna çift tıklayınca büyür, tekrar çift tıklayınca eski boyuna döner.
+
+**Gizle / göster:** **K** tuşu (ya da alt çubuktaki göz düğmesi) iki baloncuğu birlikte gizler; baloncuğun üstündeki **×** tek tek gizler. Sadece senin ekranında gizlenir: kamera açık kalır, o seni görmeye ve sesini duymaya devam eder. Köşedeki **"… gizli · Göster"** ile geri gelir. Kamerayı tamamen kapatmak (hiç görüntü gitmesin) için **C**. **Ayarlar → Kamera → Baloncuk boyutu**'ndan hazır bir boy seçince çekerek verilen boyutlar sıfırlanır.
 
 ## Kamera arka planı
 
