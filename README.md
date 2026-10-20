@@ -48,6 +48,8 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 
 İki bilgisayarın saat farkı ölçülür; aradaki kayma küçükse oynatma hızı fark ettirmeden (%±5) ayarlanır, büyükse sarılır (ölçülen fark: 0–30 ms). Birinin kopyası takılırsa öbürü bekler.
 
+**Durdur / devam:** Durunca ikiniz de aynı karede durursunuz. Devam ederken "hemen oynat" yerine geri sayımlı başlatma kullanılır: filmi açan taraf, ağ gecikmesi kadar ilerideki bir anı (~0,15–0,6 sn) "şu saatte, şu kareden" diye planlar, ikiniz aynı anda başlarsınız (ölçülen fark: 0–20 ms). Bu yüzden devam'a basınca film bir an sonra başlar.
+
 ## YouTube
 
 İzleme ekranında **YouTube bağlantısı yapıştır** kutusuna bağlantıyı yapıştır (ya da ekrandayken ⌘V / Ctrl+V). İkiniz de YouTube'dan, aynı anda izlersiniz; yayın yok. Video, sinyal sunucusundaki küçük bir aracı sayfada (`yt.html`) oynar; bu yüzden sunucu yayında olmalı.
@@ -79,6 +81,10 @@ Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 
 Eklenti uygulamaya sadece bu bilgisayarın içinden (`127.0.0.1`, kapı 47652) bağlanır; uygulama sadece bu eklentinin kimliğini kabul eder. Chrome Web Mağazası'na yüklenirse mağaza yeni bir kimlik verir: `BIRLIKTE_EXT_IDS=<kimlik>` ile eklenebilir.
+
+## O ayrılınca
+
+Çıkan taraf karşıya haber verir: **"… izleme ekranından çıktı"**, **"… uygulamayı kapattı"** ya da haber gelmeden bağlantı kesildiyse **"… ile bağlantı koptu, yeniden bağlanılıyor…"** (geri gelince "geri geldi"). Uygulama arkadaysa (ör. tarayıcıda izlerken) sistem bildirimi olarak gelir (**Ayarlar → Genel → Bildirimler**). **Ayarlar → Oynatma → O ayrılırsa ya da bağlantı koparsa → Filmi durdur** açıksa film de durur.
 
 ## Kamera baloncukları
 

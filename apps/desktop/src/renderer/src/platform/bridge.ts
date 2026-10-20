@@ -39,6 +39,7 @@ export interface Bridge {
   platform: string;
   testMode?: boolean;
   embedLocal?: boolean;
+  onClosing?(fn: () => void): () => void;
   version?(): Promise<string>;
   settings: {
     load(): Promise<Record<string, unknown>>;

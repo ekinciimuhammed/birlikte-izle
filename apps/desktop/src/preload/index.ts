@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('birlikte', {
   /** Uygulama içi izleme testi: yerel test sayfaları da uygulamanın içinde açılır */
   embedLocal: process.env['BIRLIKTE_EMBED_LOCAL'] === '1',
   version: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  /** Pencere kapanmak üzere (karşı tarafa "görüşürüz" gönderilir) */
+  onClosing: (fn: () => void) => {
+    const handler = () => fn();
+    ipcRenderer.on('app:closing', handler);
+    return () => ipcRenderer.removeListener('app:closing', handler);
+  },
   settings: {
     load: (): Promise<Record<string, unknown>> => ipcRenderer.invoke('settings:load'),
     save: (values: Record<string, unknown>): Promise<void> => ipcRenderer.invoke('settings:save', values),

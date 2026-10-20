@@ -21,6 +21,8 @@ if (!app.requestSingleInstanceLock()) app.quit();
 registerMediaScheme();
 
 let win: BrowserWindow | null = null;
+let quitting = false; // ⌘Q / Çıkış: pencere kapanışı bekletilince çıkış yeniden istenir
+app.on('before-quit', () => (quitting = true));
 let settings: SettingsFile;
 
 /**
@@ -80,6 +82,16 @@ function createWindow() {
   // Otomatik testte pencereler odağı çalmasın (kullanıcının klavyesi teste karışmasın).
   win.once('ready-to-show', () => (process.env['BIRLIKTE_TEST'] ? win?.showInactive() : win?.show()));
   win.on('closed', () => (win = null));
+  // Kapanırken karşı tarafa "görüşürüz" gidebilsin diye pencere çeyrek saniye bekler
+  // (o "uygulamayı kapattı" görür, "bağlantı koptu" değil).
+  let farewell = false;
+  win.on('close', (event) => {
+    if (farewell || !win) return;
+    farewell = true;
+    event.preventDefault();
+    win.webContents.send('app:closing');
+    setTimeout(() => (quitting ? app.quit() : win?.close()), 250);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) shell.openExternal(url);
     return { action: 'deny' };

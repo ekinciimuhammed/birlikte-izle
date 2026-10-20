@@ -13,6 +13,7 @@ import {
   Heart,
   Link,
   Lock,
+  LogOut,
   Maximize,
   Mic,
   MicOff,
@@ -784,6 +785,7 @@ const HUD_ICONS: Record<HudIcon, ReactNode> = {
   audio: <AudioLines />,
   download: <Download />,
   sync: <Sparkles />,
+  leave: <LogOut />,
 };
 
 function Hud() {

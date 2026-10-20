@@ -273,6 +273,11 @@ try {
   // Bağlanılamayınca sonsuz "bağlanıyor" yerine sebep: B aktarmayı "Her zaman" yapar ama sunucuda TURN yok.
   await B.evaluate(() => window.__birlikte.setSetting('connection.turn', 'always'));
   await B.getByRole('button', { name: 'Ana ekran' }).click();
+  // Ayrılınca haber: "görüşürüz" gelir, film durur; ardından kapanan bağlantı "koptu" sayılmaz
+  check('ayrılınca: A "izleme ekranından çıktı" diyor', await visible(A.locator('.hud', { hasText: 'izleme ekranından çıktı' }), 5000));
+  check('ayrılınca: A\'nın filmi durdu', await until(A, () => window.__birlikte.watch.localMovie.paused, null, 3000));
+  await A.waitForTimeout(1000);
+  check('ayrılınca: "bağlantı koptu" demiyor', !(await A.locator('.hud').innerText().catch(() => '')).includes('koptu'));
   await B.getByRole('button', { name: 'Katıl' }).click();
   check('bağlanamayınca B sebebini söylüyor', await visible(B.locator('.connection-help', { hasText: 'Her zaman' }), 45_000));
   check('bağlanamayınca A da uyarıyor', await visible(A.locator('.connection-help', { hasText: 'bağlantı kurulamadı' }), 10_000));
@@ -284,6 +289,14 @@ try {
     (await visible(A.locator('.watch-topbar .pill', { hasText: 'Bade burada' }), 25_000)) &&
       (await until(A, () => !document.querySelector('.connection-help'), null, 2000)),
   );
+
+  // Uygulamadan çıkış: pencere kapanırken "görüşürüz (quit)" gider
+  await B.evaluate(() => window.__birlikte.watch['sayBye']('quit'));
+  check('kapatınca: A "uygulamayı kapattı" diyor', await visible(A.locator('.hud', { hasText: 'uygulamayı kapattı' }), 5000));
+  // "Görüşürüz" olmadan kapanan bağlantı: koptu
+  await A.evaluate(() => (window.__birlikte.watch['peerBye'] = null));
+  await B.evaluate(() => window.__birlikte.watch.link.pc.close());
+  check('kopunca: A "bağlantı koptu" diyor', await visible(A.locator('.hud', { hasText: 'bağlantı koptu' }), 10_000));
 } catch (err) {
   console.error(err);
   results.push(false);

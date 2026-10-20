@@ -40,6 +40,14 @@ export const SETTINGS = {
     control: { type: 'accent', options: ACCENTS },
     default: 'pink',
   }),
+  'notify.partnerLeft': defineSetting({
+    group: 'general',
+    section: 'Bildirimler',
+    label: 'O ayrılınca haber ver',
+    footer: 'İzleme ekranından çıkınca, uygulamayı kapatınca ya da bağlantı kopunca. Uygulama arkadaysa (ör. tarayıcıda izlerken) bildirim olarak gelir.',
+    control: { type: 'toggle' },
+    default: true,
+  }),
 
   // --- Oynatma -------------------------------------------------------------
   'playback.control': defineSetting({
@@ -89,9 +97,9 @@ export const SETTINGS = {
   }),
   'playback.pauseOnDisconnect': defineSetting({
     group: 'playback',
-    section: 'Bağlantı koparsa',
+    section: 'O ayrılırsa ya da bağlantı koparsa',
     label: 'Filmi durdur',
-    footer: 'Bağlantı geri gelince kaldığınız yerden devam edersiniz.',
+    footer: 'Geri gelince kaldığınız yerden devam edersiniz.',
     control: { type: 'toggle' },
     default: true,
   }),

@@ -97,7 +97,23 @@ try {
   check('B durdurdu → A da durdu', await until(A, () => window.__birlikte.watch.localMovie.paused, null, 3000));
   await A.waitForTimeout(600);
   d = await drift();
-  check('durunca aynı karede (fark < 100 ms)', Math.abs(d) < 0.1, fmt(d));
+  check('durunca aynı karede (fark < 30 ms)', Math.abs(d) < 0.03, fmt(d));
+
+  // Devam: geri sayımlı başlatma (host "şu saatte, şu kareden" der, ikisi aynı anda başlar)
+  await cmd(B, 'play');
+  check(
+    'B devam ettirdi → ikisi de oynuyor',
+    (await until(A, () => !window.__birlikte.watch.localMovie.paused, null, 3000)) && (await until(B, () => !window.__birlikte.watch.localMovie.paused, null, 3000)),
+  );
+  await A.waitForTimeout(800);
+  d = await drift();
+  check('B devam ettirdikten hemen sonra fark < 30 ms', Math.abs(d) < 0.03, fmt(d));
+  await cmd(A, 'pause');
+  await A.waitForTimeout(800);
+  await cmd(A, 'play');
+  await A.waitForTimeout(800);
+  d = await drift();
+  check('A devam ettirdikten hemen sonra fark < 30 ms', Math.abs(d) < 0.03, fmt(d));
 
   // --- 4) Kayma düzeltme -----------------------------------------------------------------------
   await cmd(A, 'seek', 5);

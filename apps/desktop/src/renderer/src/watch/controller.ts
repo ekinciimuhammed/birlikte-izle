@@ -49,7 +49,8 @@ export type HudIcon =
   | 'captions'
   | 'audio'
   | 'download'
-  | 'sync';
+  | 'sync'
+  | 'leave';
 
 export interface WatchState {
   active: boolean;
@@ -195,6 +196,10 @@ class WatchController {
   private iceTimer: ReturnType<typeof setInterval> | undefined; // TURN kimlik bilgilerini tazele
   private iceFetchedAt = 0;
   private appVersion = ''; // karşı tarafa bildirilir; biri eskiyse uyarılır
+  private peerBye: 'leave' | 'quit' | null = null; // o "görüşürüz" dedi: kapanan bağlantı "koptu" sayılmaz
+  private byeAt = 0; // son "görüşürüz" (odadan gelen ekran değişikliği aynı çıkışı ikinci kez bildirmesin)
+  private dropped = false; // bağlantı koptu: geri gelince "geri geldi"
+  private peerScreen: string | null = null; // odadan: onun açık ekranı (izleme → ana ekran = çıktı)
   private stats: StatsSummary | null = null;
 
   // Sabit akış kimlikleri: karşı taraf filmi ve kamerayı bu kimliklerle ayırt eder.
@@ -241,6 +246,12 @@ class WatchController {
   private bufferTimer: ReturnType<typeof setTimeout> | undefined; // guest: takılma 1 sn'yi geçerse haber ver
   private bufferingSent = false;
   private seekLead = 0.15; // guest: kendi kopyamda sarma ne kadar sürüyor (sn)
+  private playLead = 0.04; // play() ile görüntünün akmaya başlaması arası (sn); ölçülerek öğrenilir
+  /** Host: geri sayımlı başlatma ("şu saatte, şu kareden"); gerçekten başlayana kadar böyle bildirilir */
+  private planned: { pos: number; at: number; timer: ReturnType<typeof setTimeout> } | null = null;
+  private startTimer: ReturnType<typeof setTimeout> | undefined; // guest: planlanan anda başla
+  private startDue = 0;
+  private startedAt = 0; // guest: planlanan başlangıcın yapıldığı an (hemen sonra kalan fark hızlı kapatılır)
   private resyncOnce = false; // guest: sarmadan hemen sonra küçük farkı da sararak kapat
   readonly transfer = new Transfer(
     () => this.link,
@@ -322,6 +333,8 @@ class WatchController {
     });
     onSettingChange((key, value, origin) => this.onSetting(key, value, origin));
     bridge.version?.().then((v) => (this.appVersion = v), () => {});
+    // Pencere kapanırken (uygulamadan çıkış): o "uygulamayı kapattı" görsün
+    bridge.onClosing?.(() => this.sayBye('quit'));
     bridge.media?.onProgress((p) => {
       if (p.id === this.media?.id && get().preparing && !get().preparing?.byPeer) this.setPreparing(p.ratio);
     });
@@ -350,6 +363,11 @@ class WatchController {
     this.room = room;
     this.roomUnsubs = [
       room.on('peer', (peer) => {
+        const before = this.peerScreen;
+        this.peerScreen = peer?.status.screen ?? null;
+        // "Görüşürüz" göndermeyen (eski) sürüm izleme ekranından çıktıysa da haber ver
+        const saidBye = performance.now() - this.byeAt < 5000;
+        if (before === 'watch' && this.peerScreen === 'home' && !saidBye && get().active) this.partnerLeft('leave');
         // Oda bağlantısı kopsa bile P2P yaşıyorsa sürdür; gerçekten koptuysa kanal kapanır.
         if (!peer && this.link?.isOpen) return;
         this.evaluateLink();
@@ -395,12 +413,13 @@ class WatchController {
   /** İzleme ekranından çıkarken: yayın, kamera ve bağlantı kapanır */
   leave() {
     if (!get().active) return;
+    const bye = this.sayBye('leave');
     this.saveHistory();
     this.countTogether();
     this.together.flush();
     this.timers.forEach(clearInterval);
     this.timers = [];
-    this.stopLink();
+    this.stopLink(bye);
     if (get().role === 'host') this.stopHosting();
     this.becomeIdle();
     this.blur.stop();
@@ -494,7 +513,8 @@ class WatchController {
     for (const data of this.pendingSignals.splice(0)) link.handleSignal(data);
   }
 
-  private stopLink() {
+  /** graceful: son gönderilenler ("görüşürüz") gidebilsin diye bağlantı biraz sonra kapanır */
+  private stopLink(graceful = false) {
     this.linkGeneration++;
     this.linkStarting = false;
     this.pendingSignals = [];
@@ -505,7 +525,7 @@ class WatchController {
     this.clearConnectionHelp();
     const link = this.link;
     this.link = null;
-    link?.stop();
+    link?.stop(graceful ? 200 : 0);
     this.clock.stop();
     this.transfer.onCancel();
     this.resetPeerSync();
@@ -598,7 +618,47 @@ class WatchController {
       this.broadcast();
     }
     this.subtitles.resend();
-    this.hud(`${this.partnerName()} burada`, 'heart');
+    this.peerBye = null;
+    this.hud(this.dropped ? `${this.partnerName()} geri geldi` : `${this.partnerName()} burada`, 'heart');
+    this.dropped = false;
+  }
+
+  /** Çıkıyorum: o "izleme ekranından çıktı" / "uygulamayı kapattı" görsün. Gönderildiyse true. */
+  private sayBye(reason: 'leave' | 'quit') {
+    if (!this.link?.isOpen || !get().peerHere) return false;
+    this.send({ t: 'bye', reason });
+    return true;
+  }
+
+  /** O ayrıldı ya da bağlantı koptu: haber ver (uygulama arkadaysa bildirim), ayar açıksa filmi durdur */
+  private partnerLeft(reason: 'leave' | 'quit' | 'drop') {
+    const who = this.partnerName();
+    const paused = this.pauseForPartner();
+    const what =
+      reason === 'leave' ? `${who} izleme ekranından çıktı` : reason === 'quit' ? `${who} uygulamayı kapattı` : `${who} ile bağlantı koptu`;
+    const text = paused ? `${what}, durduruldu` : reason === 'drop' ? `${what}, yeniden bağlanılıyor…` : what;
+    this.hud(text, reason === 'drop' ? 'wifi-off' : 'leave');
+    this.notify(text);
+  }
+
+  /** Ayar açıksa ve film oynuyorsa durdur (kendi oynatıcım: host ya da kendi kopyamdan izleyen guest) */
+  private pauseForPartner() {
+    const mine = get().role === 'host' || (get().role === 'guest' && get().syncMode);
+    if (!getSetting('playback.pauseOnDisconnect') || !mine || !this.player.playing) return false;
+    this.cancelPlanned();
+    this.player.pause();
+    return true;
+  }
+
+  /** Uygulama arkadaysa (ör. tarayıcıda izlerken) sistem bildirimi */
+  private notify(text: string) {
+    if (!bridge.media || !getSetting('notify.partnerLeft') || (document.hasFocus() && !document.hidden)) return;
+    try {
+      const n = new Notification('Birlikte İzle', { body: text });
+      n.onclick = () => window.focus();
+    } catch {
+      // bildirime izin yok
+    }
   }
 
   /** Masaüstü uygulamaları farklı sürümdeyse uyar (kanallar gibi yenilikler eski sürümde çalışmaz) */
@@ -617,6 +677,8 @@ class WatchController {
 
   private onChannelClose() {
     const wasHere = get().peerHere;
+    const bye = this.peerBye;
+    this.peerBye = null;
     set({ peerHere: false, peerCamOn: false, peerMicOn: false, versionNotice: null, connection: this.link ? 'reconnecting' : 'alone' });
     if (this.link) this.armConnectionHelp();
     this.ducker.stop();
@@ -625,9 +687,10 @@ class WatchController {
     if (!wasHere) return;
     // Geri gelince guest "bende de var" diye yeniden haber verir; o zamana kadar yayın açık.
     if (get().role === 'host') this.leavePeerSync();
-    if (get().role === 'host' && this.player.playing && getSetting('playback.pauseOnDisconnect')) {
-      this.player.pause();
-      this.hud(`${this.partnerName()} ile bağlantı koptu, durduruldu`, 'wifi-off');
+    // "Görüşürüz" demeden kapandıysa bağlantı koptu (o çıktıysa haber zaten verildi)
+    if (!bye) {
+      this.dropped = true;
+      this.partnerLeft('drop');
     }
     if (get().role === 'guest' && this.remoteState) {
       const pos = get().syncMode ? this.player.time : this.seenPosition();
@@ -764,6 +827,12 @@ class WatchController {
 
       case 'react':
         this.floatReaction(m.kind);
+        break;
+
+      case 'bye':
+        this.peerBye = m.reason;
+        this.byeAt = performance.now();
+        this.partnerLeft(m.reason);
         break;
 
       case 'channel':
@@ -1021,6 +1090,7 @@ class WatchController {
   }
 
   private stopHosting() {
+    this.cancelPlanned();
     this.loadToken++;
     if (this.media) bridge.media?.cancel(this.media.id);
     this.media = null;
@@ -1061,16 +1131,18 @@ class WatchController {
 
   private broadcast(action?: PlayAction, by?: 'host' | 'guest') {
     if (get().role !== 'host' || !this.link?.isOpen || get().preparing) return;
+    // Geri sayım sürerken oynatıcı henüz duruyor: "şu saatte, şu kareden başlıyor" diye bildir
+    const plan = this.planned;
     this.send({
       t: 'state',
-      playing: this.player.playing,
-      pos: this.player.time,
+      playing: plan ? true : this.player.playing,
+      pos: plan ? plan.pos : this.player.time,
       rate: this.player.rate,
       duration: this.player.duration,
       ack: this.lastAck,
       action,
       by,
-      at: now(),
+      at: plan ? plan.at : now(),
     });
   }
 
@@ -1081,8 +1153,14 @@ class WatchController {
     if (!this.player.hasSource || get().preparing) return;
     if (seq) this.lastAck = seq;
     this.endPeerWait();
+    if (action !== 'play') this.cancelPlanned();
     if (action === 'play') {
-      await this.player.play().catch(() => {});
+      if (this.planPlay()) {
+        this.broadcast(action, byPeer ? 'guest' : 'host');
+        this.feedback(action, byPeer, this.player.time);
+        return this.tick();
+      }
+      await this.timedPlay();
     } else if (action === 'pause') {
       this.player.pause();
       // Onun ekranı birkaç yüz ms geride: tam onun gördüğü karede duralım.
@@ -1102,6 +1180,39 @@ class WatchController {
     this.broadcast(action, byPeer ? 'guest' : 'host');
     this.feedback(action, byPeer, this.player.time);
     this.tick();
+  }
+
+  /**
+   * Geri sayımlı başlatma: o kendi kopyasından izliyorsa oynatma biraz ileriye (ağ gecikmesi kadar)
+   * planlanır; ikimiz de aynı saatte, aynı kareden başlarız. Planlandıysa true.
+   */
+  private planPlay() {
+    const peerHasCopy = !!this.link?.isOpen && get().peerHere && (this.peerSyncing || this.player.kind !== 'file');
+    if (!peerHasCopy || this.player.playing || !this.player.hasSource) return false;
+    this.cancelPlanned();
+    const lead = clamp((this.stats?.rtt ?? 0.1) + 0.12, 0.15, 0.6);
+    const timer = setTimeout(() => {
+      this.planned = null;
+      void this.timedPlay();
+    }, Math.max(0, (lead - this.playLead) * 1000));
+    this.planned = { pos: this.player.time, at: now() + lead * 1000, timer };
+    return true;
+  }
+
+  private cancelPlanned() {
+    if (!this.planned) return;
+    clearTimeout(this.planned.timer);
+    this.planned = null;
+  }
+
+  /** Oynat ve play() ile görüntünün akmaya başlaması arasındaki süreyi öğren (planlı başlangıçta düşülür) */
+  private async timedPlay() {
+    const player = this.player;
+    const t0 = performance.now();
+    await player.play().catch(() => {});
+    if (player === this.player && player.playing) {
+      this.playLead = clamp(this.playLead * 0.6 + ((performance.now() - t0) / 1000) * 0.4, 0.01, 0.3);
+    }
   }
 
   /** "Birlikte izlediğimiz saatler": ikimiz de buradayken ve film oynarken geçen süre */
@@ -1176,7 +1287,8 @@ class WatchController {
     // Senkron modda kendi kopyam da hemen tepki verir.
     const t = { recvAt: performance.now(), at: now() + this.clock.offset };
     if (act === 'pause') this.remoteState = { ...s, ...t, playing: false, pos: seen };
-    else if (act === 'play') this.remoteState = { ...s, ...t, playing: true, pos: sync ? this.syncTarget() : this.hostPosition() };
+    // Senkron modda oynat'ta beklenir: host "şu saatte, şu kareden" diye planlar, ikimiz aynı anda başlarız.
+    else if (act === 'play' && !sync) this.remoteState = { ...s, ...t, playing: true, pos: this.hostPosition() };
     else this.remoteState = { ...s, ...t, pos: pos! };
     if (sync) this.followSync();
     this.feedback(act, false, act === 'seek' ? pos! : seen);
@@ -1284,6 +1396,7 @@ class WatchController {
   /** Guest: kendi kopyamı bırak, yayından izlemeye dön */
   exitSync(notify = true) {
     this.syncToken++; // süren arama/hazırlık varsa boşa çıksın
+    this.cancelScheduledPlay();
     clearTimeout(this.bufferTimer);
     if (this.bufferingSent) {
       this.bufferingSent = false;
@@ -1339,9 +1452,21 @@ class WatchController {
     const s = this.remoteState;
     const p = this.player;
     if (!get().syncMode || !s || this.followSeeking || p.seeking || p.buffering || !p.hasSource) return;
+    const live = this.isTab(p) && p.isLive;
+    // Geri sayımlı başlatma: host "şu saatte, şu kareden" dedi → o ana kadar o karede bekle, tam o anda başla.
+    const wait = s.playing && s.at != null && this.clock.ready ? s.at - (now() + this.clock.offset) : 0;
+    if (wait > 15) {
+      if (p.playing) p.pause();
+      if (!live && Math.abs(p.time - s.pos) > this.pauseTolerance(p)) {
+        this.followSeek(s.pos, false);
+        return;
+      }
+      this.schedulePlay(wait);
+      return;
+    }
     // Tarayıcıdaki canlı yayında iki oynatıcının zamanı karşılaştırılamaz: sadece oynat/durdur eşitlenir.
     // (Dosya oynatıcısındaki isLive "anında dönüştürme" demek; o sarılarak eşitlenir.)
-    if (this.isTab(p) && p.isLive) {
+    if (live) {
       if (s.playing && !p.playing && !p.ended) p.play().catch(() => {});
       else if (!s.playing && p.playing) p.pause();
       return;
@@ -1351,9 +1476,11 @@ class WatchController {
     // Hızı ince ayarlanamayan oynatıcıda kaymayı daha erken, sararak kapat.
     const fine = p.fineRate;
     if (!s.playing) {
+      this.cancelScheduledPlay();
       if (p.playing) p.pause();
       if (fine) p.setRate(1);
-      if (Math.abs(drift) > (fine ? 0.1 : 0.25)) this.followSeek(target, false);
+      // Durunca aynı karede: dosyada bir kare (20 ms), diğerlerinde sarma hassasiyeti kadar
+      if (Math.abs(drift) > this.pauseTolerance(p)) this.followSeek(target, false);
       return;
     }
     const limit = this.resyncOnce && p.playing ? (fine ? 0.05 : 0.15) : fine ? 1 : 0.4;
@@ -1369,8 +1496,37 @@ class WatchController {
     }
     this.resyncOnce = false;
     if (!fine) return;
-    if (Math.abs(drift) < 0.02) this.player.setRate(s.rate);
-    else if (Math.abs(drift) > 0.06) this.player.setRate(s.rate * clamp(1 - drift * 0.5, 0.95, 1.05));
+    // Küçük farkları da kapat (eskiden 20–60 ms arası hiç düzeltilmiyordu): hız farkla orantılı.
+    // Planlı başlangıçtan hemen sonra oynatıcının ilk kare gecikmesinden kalan farkı daha hızlı kapat.
+    const fresh = performance.now() - this.startedAt < 3000;
+    const cap = fresh ? 0.08 : 0.05;
+    if (Math.abs(drift) < 0.01) this.player.setRate(s.rate);
+    else if (Math.abs(drift) > (fresh ? 0.01 : 0.02)) this.player.setRate(s.rate * clamp(1 - drift * (fresh ? 2 : 1), 1 - cap, 1 + cap));
+  }
+
+  /** Guest: planlanan anda başla (kendi oynatıcımın başlama gecikmesi düşülerek) */
+  private schedulePlay(waitMs: number) {
+    const due = performance.now() + waitMs - this.playLead * 1000;
+    if (this.startTimer && Math.abs(due - this.startDue) < 10) return; // zaten bu ana planlı
+    clearTimeout(this.startTimer);
+    this.startDue = due;
+    this.startTimer = setTimeout(() => {
+      this.startTimer = undefined;
+      if (!get().syncMode || !this.remoteState?.playing) return;
+      this.startedAt = performance.now();
+      void this.timedPlay();
+    }, Math.max(0, due - performance.now()));
+  }
+
+  private cancelScheduledPlay() {
+    clearTimeout(this.startTimer);
+    this.startTimer = undefined;
+  }
+
+  /** Dururken aynı karede olmak için tolerans (sn): dosyada bir kare, diğerlerinde sarma hassasiyeti kadar */
+  private pauseTolerance(p: Playable) {
+    if (p.kind === 'file' && !p.isLive) return 0.02;
+    return p.fineRate ? 0.1 : 0.25;
   }
 
   /** Sarma da zaman alır: oynarken o kadar ilerisine sar, süreyi öğren. */

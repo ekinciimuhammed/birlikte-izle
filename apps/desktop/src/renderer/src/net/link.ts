@@ -66,11 +66,13 @@ export class Link extends Emitter<Events> {
     if (!this.opts.polite) this.newSession();
   }
 
-  stop() {
+  /** grace: son mesajların ("görüşürüz") gidebilmesi için bağlantı bu kadar ms sonra kapanır */
+  stop(grace = 0) {
     this.stopped = true;
     clearTimeout(this.recoveryTimer);
     clearTimeout(this.answerTimer);
-    this.closePeerConnection();
+    if (grace) setTimeout(() => this.closePeerConnection(), grace);
+    else this.closePeerConnection();
   }
 
   get isOpen() {
