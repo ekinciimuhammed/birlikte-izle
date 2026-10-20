@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Birlikte İzle",
   "description": "Netflix, Disney+, Prime Video, YouTube ve diğerlerini Birlikte İzle uygulamasıyla, sevdiğinle aynı anda izle; kameralarınız sitenin üstünde.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqx/KRgwdKOFHn2QPlXDGJSLSsvZohzrhWtySSnkSyQibHY2w6cgIK04A/XkTq+YG4oz+Nhg4Jsu08WJRhfe42S8biJAV2ni8JryaHCMFCQ+O1NZ/phwdfLePXuG3liUVCXKfB/U0LlCDncIHaKUf95pWArubNdL7Ir9haobTpezc+Wkpa1GxzZgLu8hysGoRU6/7viKvTzBQghZPJDLfRDce2YzowLN/uqYk58R6DE7ytkYFZ9LaCUkCvN0MpYs7cqNPTXeopfKAvqUlKZw5/nK4AZzhC8ChHftPeZkZYODjBsdW3rEd7cXpPsvW11lcrCmMNftapFxS3VKd+C3miwIDAQAB",
   "minimum_chrome_version": "116",
   "icons": {

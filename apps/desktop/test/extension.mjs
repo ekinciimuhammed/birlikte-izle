@@ -131,6 +131,31 @@ const peerCamInTab = async (app, tab) => {
   if (!(await app.evaluate(() => window.__birlikte.state().peerCamOn))) return true;
   return until(tab, () => /^[1-9]/.test(document.querySelector('birlikte-kameralar')?.dataset.peer ?? ''), null, 20_000);
 };
+/** Baloncukların içinde (kapalı gölge) eklentinin kendi dünyasında çalışan kod; sayfanın betikleri oraya ulaşamaz */
+async function inCams(page, code) {
+  const cdp = await page.context().newCDPSession(page);
+  const contexts = [];
+  cdp.on('Runtime.executionContextCreated', (e) => contexts.push(e.context));
+  await cdp.send('Runtime.enable');
+  const { frameTree } = await cdp.send('Page.getFrameTree');
+  const ctx = contexts.find((c) => c.auxData?.frameId === frameTree.frame.id && !c.auxData?.isDefault && /Birlikte/.test(c.name));
+  try {
+    if (!ctx) throw new Error('eklentinin dünyası bulunamadı');
+    const r = await cdp.send('Runtime.evaluate', { expression: `(() => { const root = window.__birlikteCams.root(); ${code} })()`, contextId: ctx.id, returnByValue: true });
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+    return r.result.value;
+  } finally {
+    await cdp.detach().catch(() => {});
+  }
+}
+async function soonCams(page, code, timeout = 8000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    if (await inCams(page, code).catch(() => false)) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
 const playing = (page) => page.waitForFunction(() => !document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false);
 const paused = (page) => page.waitForFunction(() => document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false);
 
@@ -166,6 +191,33 @@ try {
   check('kameralar: A\'nın sekmesinde Bade\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(A, pa));
   check('kameralar: B\'nin sekmesinde Ali\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(B, pb));
   check('kameralar: kendi görüntüsü de var', await until(pa, () => /^[1-9]/.test(document.querySelector('birlikte-kameralar')?.dataset.self ?? ''), null, 15_000));
+  // Baloncuklardaki çubuk: kamera ve mikrofon uygulamadakiyle aynı aç/kapat; boyut köşeden; gizle/göster
+  await inCams(pa, `root.querySelector('.bar .cam').click()`);
+  check('çubuk: A sitede kamerayı kapattı → uygulamada da kapandı', await until(A, () => !window.__birlikte.state().camOn, null, 5000));
+  check('çubuk: B\'nin sitesinde A\'nın baloncuğu "kapalı"', await soonCams(pb, `return root.querySelector('.cam.peer').classList.contains('is-off')`));
+  await inCams(pa, `root.querySelector('.bar .cam').click()`);
+  check('çubuk: tekrar açınca uygulamada da açıldı', await until(A, () => window.__birlikte.state().camOn, null, 10_000));
+  await inCams(pa, `root.querySelector('.bar .mic').click()`);
+  check('çubuk: mikrofonu kapattı → uygulamada kapandı, düğme kırmızı', (await until(A, () => !window.__birlikte.state().micOn, null, 5000)) && (await soonCams(pa, `return root.querySelector('.bar .mic').classList.contains('off')`)));
+  check('çubuk: B\'nin sitesinde A\'nın baloncuğunda "sessiz" işareti', await soonCams(pb, `return root.querySelector('.cam.peer').classList.contains('muted')`));
+  await inCams(pa, `root.querySelector('.bar .mic').click()`);
+  check('çubuk: mikrofon yeniden açıldı', await until(A, () => window.__birlikte.state().micOn, null, 5000));
+  const grip = await inCams(pa, `const r = root.querySelector('.grip').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: root.querySelector('.cam.peer').offsetWidth }`);
+  await pa.mouse.move(grip.x, grip.y);
+  await pa.mouse.down();
+  await pa.mouse.move(grip.x - 90, grip.y + 40, { steps: 6 });
+  await pa.mouse.up();
+  const grown = await inCams(pa, `return root.querySelector('.cam.peer').offsetWidth`);
+  check('boyut: köşeden çekince büyüdü', grown > grip.w + 40, `${grip.w} → ${grown} px`);
+  await inCams(pa, `root.querySelector('.bar .hide-all').click()`);
+  check('gizle: iki baloncuk da gizlendi, "Göster" var', await soonCams(pa, `return root.querySelector('.cam.peer').hidden && root.querySelector('.cam.self').hidden && !root.querySelector('.show').hidden`));
+  await inCams(pa, `root.querySelector('.show').click()`);
+  check('göster: geri geldi', await soonCams(pa, `return !root.querySelector('.cam.peer').hidden && !root.querySelector('.cam.self').hidden`));
+  const peerBox = await inCams(pa, `const r = root.querySelector('.cam.peer').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }`);
+  await pa.mouse.move(peerBox.x, peerBox.y); // çubuk fareyle gelince görünür
+  await pa.waitForTimeout(300);
+  await pa.screenshot({ path: join(OUT, 'eklenti-sekme-cubuk.png') });
+
   // Eklenti uygulamanınkinden eskiyse (eski bir kopya yüklenmiş) uygulama söyler
   const helloAs = (ctx, version) => ctx.serviceWorkers()[0].evaluate((v) => toApp({ t: 'hello', browser: browserName(), version: v }), version);
   await helloAs(EB, '0.3.4');

@@ -67,7 +67,7 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 
 ## Netflix ve diğerleri (tarayıcı eklentisi)
 
-Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Kanalların kendi sitelerindeki ücretsiz bölümler de olur: atv, Kanal D, Show TV, Star TV, NOW ve TV8. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). **Kameralar sitenin üstünde:** Tarayıcıda izlerken ikinizin kamerası sayfanın köşesinde iki baloncuk olarak görünür (tam ekranda da). Sürükleyip istediğin yere bırak, çift tıklayınca büyür, **×** ile gizlenir. Görüntü uygulamadan eklentiye bu bilgisayarın içinde gider (dışarı çıkmaz); ses uygulamadan duyulur. Ayrıca **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
+Netflix, Disney+, Prime Video, Max, TV+, Exxen, BluTV, Gain, tabii, puhutv, MUBI, Apple TV+ ve Crunchyroll tarayıcıda oynar; ikiniz de kendi hesabınızla, kendi tarayıcınızda izlersiniz. Kanalların kendi sitelerindeki ücretsiz bölümler de olur: atv, Kanal D, Show TV, Star TV, NOW ve TV8. Eklenti oradaki oynatıcıyı uygulamaya bağlar: oynat, durdur, sar iki tarafa geçer (tarayıcıda elle yapılanlar da). **Kameralar sitenin üstünde:** Tarayıcıda izlerken ikinizin kamerası sayfanın köşesinde iki baloncuk olarak görünür (tam ekranda da). Sürükleyip istediğin yere bırak; köşedeki tutamaçtan çekerek büyüt/küçült, çift tıklayınca büyür, **×** ile gizlenir. Fareyle üstüne gelince çubuk çıkar: **kamera** ve **mikrofon** aç/kapat (uygulamadaki C / M ile aynı; o da görür) ve baloncukları gizle. Kapalı mikrofon baloncukta kırmızı işaretle görünür. Görüntü uygulamadan eklentiye bu bilgisayarın içinde gider (dışarı çıkmaz); ses uygulamadan duyulur. Ayrıca **Kamerası hep üstte kalsın** düğmesi onun kamerasını tarayıcının üstünde küçük bir pencerede tutar.
 
 Netflix için en kolay yol budur: ikiniz de Netflix'i Chrome/Edge'de kendi hesabınızla açarsınız, eklenti oynat/durdur/sarmayı eşler ve kameralarınızı sitenin üstünde gösterir. (Netflix uygulamanın içinde oynamaz: Widevine, imzalı bir Electron ister.)
 
@@ -79,7 +79,7 @@ Reklamlı sitelerde reklam araları ikinizi de bekletir: birinde reklam girince 
 2. Tarayıcıda `chrome://extensions` (Edge: `edge://extensions`) → **Geliştirici modu**nu aç.
 3. **Paketlenmemiş öğe yükle** → açılan klasörü seç. Mac'te klasör uygulamanın içinde olduğu için seçim penceresi oraya girmez: pencerede **⌘⇧G**'ye basıp `/Applications/Birlikte Izle.app/Contents/Resources/extension` yaz.
 
-Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç), sonra izlediğin sekmeyi de yenile; yeni siteler ve sitedeki kameralar (eklenti 0.4.0) o zaman gelir. Eklentiyi bir kopyadan yüklediysen (ör. klasörü masaüstüne kopyaladıysan) yenilemek o eski kopyayı yükler: uygulamadaki klasörün dosyalarını kopyanın üstüne kopyala. Bağlanan eklenti eskiyse uygulama söyler (Ayarlar → Genel ve tarayıcıda izleme kartı).
+Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç), sonra izlediğin sekmeyi de yenile; yeni siteler ve sitedeki kameralar (eklenti 0.4.1) o zaman gelir. Eklentiyi bir kopyadan yüklediysen (ör. klasörü masaüstüne kopyaladıysan) yenilemek o eski kopyayı yükler: uygulamadaki klasörün dosyalarını kopyanın üstüne kopyala. Bağlanan eklenti eskiyse uygulama söyler (Ayarlar → Genel ve tarayıcıda izleme kartı).
 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 
@@ -213,7 +213,7 @@ npm run test:phone -w @birlikte/desktop           # masaüstü ↔ telefon taray
 npm run test:sync -w @birlikte/desktop            # senkron mod, bölüm gönderme, kayma, istatistik (42)
 npm run test:youtube -w @birlikte/desktop         # YouTube senkronu, gerçek YouTube; internet yoksa atlanır (18)
 npm run test:camera -w @birlikte/desktop          # kamera arka planı bulanıklaştırma (9)
-npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi + sitedeki kameralar, eski eklenti uyarısı, iki Edge + iki uygulama (45); EDGE_PATH ile Chrome for Testing da olur
+npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi + sitedeki kameralar, eski eklenti uyarısı, baloncuk çubuğu ve boyut, iki Edge + iki uygulama (54); EDGE_PATH ile Chrome for Testing da olur
 npm run test:web -w @birlikte/desktop             # uygulama içinde izleme: kanallar, canlı, sadece video, sayfada geri, çıkıp dönme, kendini onarma (39)
 npm run dist:dir -w @birlikte/desktop
 npm run test:packaged -w @birlikte/desktop        # paketlenmiş uygulama + ffmpeg, eklenti, uygulama içi sayfa (7)

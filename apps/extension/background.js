@@ -225,7 +225,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (!claim(tab, frame, msg.playing)) return;
     lastState = msg;
     toApp(msg);
-  } else if (msg.t === 'cam-signal') {
+  } else if (msg.t === 'cam-signal' || msg.t === 'cam-cmd') {
+    // Baloncuklardan: görüntü bağlantısı ya da kamera/mikrofon aç-kapat (sadece baloncukların olduğu çerçeveden)
     if (camsTarget && tab === camsTarget.tab && frame === camsTarget.frame) toApp(msg);
     return;
   } else if (msg.t === 'gone' && tab === activeTab && frame === activeFrame) {

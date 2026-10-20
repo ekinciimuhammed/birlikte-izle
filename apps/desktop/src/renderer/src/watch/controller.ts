@@ -172,7 +172,9 @@ class WatchController {
   readonly webview = isDesktop ? new WebView() : null;
   readonly web = new BrowserPlayer(this.webview?.link ?? null);
   /** Tarayıcıda izlerken kameralar sitenin üstünde (eklenti) */
-  private readonly browserCams = bridge.extension ? new BrowserCams() : null;
+  private readonly browserCams = bridge.extension
+    ? new BrowserCams((cmd) => (cmd === 'cam' ? this.toggleCam() : this.toggleMic()))
+    : null;
   private pendingWeb: WebVideo | null = null; // guest: eklenti bağlanınca açılacak
   private pendingChannel: { url: string; name: string; embedded: boolean; until: number } | null = null; // seçtiğim kanalda video belirince birlikte izle
   /** Şu an kullanılan oynatıcı (host'ta film, guest'te senkron moddaki kopya) */
@@ -959,6 +961,8 @@ class WatchController {
       self: getSetting('profile.name') || 'Ben',
       peerTrack: (s.peerHere && s.peerCamOn && cam?.getVideoTracks()[0]) || null,
       selfTrack: this.camOut,
+      micOn: s.micOn,
+      peerMicOn: !s.peerHere || s.peerMicOn,
     });
   }
 

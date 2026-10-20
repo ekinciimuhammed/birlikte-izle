@@ -12,7 +12,12 @@ export interface BrowserCamsInfo {
   peerTrack: MediaStreamTrack | null;
   /** Benim kameram (arka plan bulanıksa işlenmiş hali) */
   selfTrack: MediaStreamTrack | null;
+  micOn: boolean;
+  peerMicOn: boolean;
 }
+
+/** Baloncuklardaki çubuktan: kamerayı / mikrofonu aç-kapat (uygulamadaki C / M) */
+export type BrowserCamsCommand = 'cam' | 'mic';
 
 type Signal = { description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit | null };
 
@@ -22,11 +27,12 @@ export class BrowserCams {
   private session = '';
   private sent = '';
 
-  constructor() {
+  constructor(onCommand: (cmd: BrowserCamsCommand) => void) {
     const ext = bridge.extension;
     if (!ext) return;
     ext.onMessage((m) => {
       if (m.t === 'cam-signal') void this.onSignal(String(m.session ?? ''), m.data as Signal | undefined);
+      else if (m.t === 'cam-cmd' && this.info && (m.cmd === 'cam' || m.cmd === 'mic')) onCommand(m.cmd);
     });
     // Eklenti yeniden bağlandı: baloncukları yeniden iste
     ext.onStatus((s) => {
@@ -46,7 +52,9 @@ export class BrowserCams {
 
   private announce() {
     const i = this.info;
-    const msg = i ? { t: 'cams', on: true, peer: i.peer, self: i.self, peerOn: !!i.peerTrack, selfOn: !!i.selfTrack } : { t: 'cams', on: false };
+    const msg = i
+      ? { t: 'cams', on: true, peer: i.peer, self: i.self, peerOn: !!i.peerTrack, selfOn: !!i.selfTrack, micOn: i.micOn, peerMicOn: i.peerMicOn }
+      : { t: 'cams', on: false };
     const key = JSON.stringify(msg);
     if (key === this.sent) return;
     this.sent = key;
