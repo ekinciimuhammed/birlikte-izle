@@ -56,7 +56,8 @@ Amaç: Mimariyi gerçek ağda gözle görmek. Tarayıcıda çalışır, Electron
 - [x] Kopma → paylaşan durur, izleyende "Yeniden bağlanıyor…", geri gelince kaldığı yerden
 - [x] Kamera/mikrofon kendiliğinden kapanırsa (kablo, başka uygulama, uyku) fark edip yeniden açmayı dener
 - [x] Testler: sunucu 19/19 · uygulama uçtan uca 39/39 · gerçek Electron iki pencere 15/15
-- [ ] **Senin yapacakların:** sunucuyu yayına al (README → "Sunucuyu yayına alma") ve iki bilgisayarda gerçek ağda dene
+- [x] Sunucu yayında: `https://birlikte-izle-signal.ekinciimuhammed.workers.dev` (yayındaki duman testi 20/20)
+- [ ] **Senin yapacakların:** iki bilgisayarda gerçek ağda dene; isteğe bağlı TURN anahtarı (README → Yayına alma)
 
 **Bitti sayılır:** İki bilgisayarda kurulu uygulama, kod girmeden birbirini buluyor ve bir bölüm baştan sona sorunsuz izleniyor.
 
@@ -88,7 +89,7 @@ Hedef: hangi dosya, hangi işletim sistemi, hangi cihaz olursa olsun çalışsı
 - [x] Otomatik güncelleme (GitHub Releases) + "Yeni sürüm hazır" bildirimi
 - [x] macOS kamera/mikrofon izinleri ve yetkileri, uygulama simgesi
 - [x] GitHub Actions: her etikette üç platform için derleyip yayımlar (`.github/workflows/surum.yml`)
-- [ ] **Senin yapacakların:** GitHub deposu + `SIGNAL_URL` değişkeni + ilk etiket → Mac/Linux paketleri ilk kez orada derlenecek
+- [x] GitHub deposu + `SIGNAL_URL` değişkeni + `v0.3.0` etiketi: Windows exe, Mac dmg (Apple Silicon + Intel), Linux AppImage/deb Releases'te
 
 **Her cihaz**
 - [x] Web sürümü sinyal sunucusuyla aynı adreste: kurmadan tarayıcıdan (telefondan da) katılma
@@ -148,6 +149,7 @@ Hedef: hangi dosya, hangi işletim sistemi, hangi cihaz olursa olsun çalışsı
 - İki taraf aynı anda iz eklediğinde Chromium bazen yeni teklifi "RTP extension ID reassignment" ile reddediyor. Artık reddedilen teklif ya da cevapsız kalan teklif temiz bir oturumla kurtarılıyor.
 - MediaPipe modeli `fetch()` ile yükleniyor; kurulu uygulamada sayfa `file://` olduğu için model koda gömüldü (250 KB). WebAssembly için CSP'ye `wasm-unsafe-eval` eklendi.
 - Uygulama İndirilenler'i taradığında macOS izin sorar: Info.plist'e Türkçe açıklamalar eklendi.
+- GitHub Actions: Apple sertifikası yokken boş `CSC_LINK` electron-builder'ı düşürüyor (değişken hiç tanımlanmamalı); Intel macOS 15 makinesinde dmg aracı 32 bit taşmasıyla çöküyor, Intel paketi Apple Silicon makinesinde `--x64` ile derleniyor (ffmpeg'in x86_64 sürümü ayrıca indirilip doğrulanıyor). İki Mac işi de `latest-mac.yml` yüklediği için sonuncusu kazanır; Mac'te otomatik güncelleme zaten imza gerektirdiğinden şimdilik sorun değil, imza alınırsa birleştirilmeli.
 - Testleri art arda çok kez çalıştırınca Windows'un geçici port havuzu (16.384) TIME_WAIT bağlantılarıyla doluyor; Electron'un hata ayıklama portu açılamıyor ve testler "failed to launch" ile düşüyor. Uygulamadan değil; testler tek tek ya da yeniden başlatmadan sonra geçiyor.
 
 ---
