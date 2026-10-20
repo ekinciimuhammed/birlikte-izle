@@ -1,27 +1,34 @@
 // Sinyal sunucusu duman testi: kendi yerel sunucusunu açar, uçları ve odayı dener.  →  npm test
+// Yayındaki sunucuyu denemek için: SIGNAL_BASE=https://….workers.dev npm test
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 
 const PORT = 8788;
-const BASE = `http://127.0.0.1:${PORT}`;
+const REMOTE = process.env.SIGNAL_BASE?.replace(/\/+$/, '');
+const BASE = REMOTE ?? `http://127.0.0.1:${PORT}`;
 const results = [];
 const check = (name, ok, extra = '') => {
   results.push(ok);
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${extra ? `  (${extra})` : ''}`);
 };
 
-mkdirSync(new URL('../web', import.meta.url), { recursive: true });
-const server = spawn(`npx wrangler dev --port ${PORT} --ip 127.0.0.1`, {
-  cwd: new URL('..', import.meta.url),
-  shell: true,
-  detached: process.platform !== 'win32', // macOS/Linux: süreç grubu olarak kapatabilmek için
-  env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },
-});
-await new Promise((resolve, reject) => {
-  const timer = setTimeout(() => reject(new Error('Sunucu 60 sn içinde açılmadı')), 60_000);
-  server.stdout.on('data', (d) => d.toString().includes('Ready on') && (clearTimeout(timer), resolve()));
-});
+let server = null;
+if (!REMOTE) {
+  mkdirSync(new URL('../web', import.meta.url), { recursive: true });
+  server = spawn(`npx wrangler dev --port ${PORT} --ip 127.0.0.1`, {
+    cwd: new URL('..', import.meta.url),
+    shell: true,
+    detached: process.platform !== 'win32', // macOS/Linux: süreç grubu olarak kapatabilmek için
+    env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },
+  });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Sunucu 60 sn içinde açılmadı')), 60_000);
+    server.stdout.on('data', (d) => d.toString().includes('Ready on') && (clearTimeout(timer), resolve()));
+  });
+} else {
+  console.log(`Yayındaki sunucu: ${BASE}`);
+}
 
 const post = (path, body) =>
   fetch(BASE + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -57,7 +64,7 @@ try {
   const bade = { deviceId: randomUUID(), name: 'Bade' };
 
   check('sağlık ucu', (await fetch(`${BASE}/api/health`)).ok);
-  if (existsSync(new URL('../web/index.html', import.meta.url))) {
+  if (REMOTE || existsSync(new URL('../web/index.html', import.meta.url))) {
     const page = await fetch(`${BASE}/bir/sayfa`);
     check('web sürümü sunuluyor (tek sayfa uygulaması)', page.ok && /<div id="root">/.test(await page.text()));
   }
@@ -129,8 +136,8 @@ try {
 } finally {
   // Windows'ta önce bütün süreç ağacı (cmd → npx → wrangler → workerd) kapatılmalı;
   // kabuk önce ölürse taskkill çocukları bulamaz ve sunucu arkada kalır.
-  if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(server.pid), '/T', '/F']);
-  else killGroup(server);
+  if (server && process.platform === 'win32') spawnSync('taskkill', ['/pid', String(server.pid), '/T', '/F']);
+  else if (server) killGroup(server);
 }
 
 const failed = results.filter((r) => !r).length;
