@@ -9,10 +9,16 @@ const owner = process.env.BIRLIKTE_GH_OWNER;
 const repo = process.env.BIRLIKTE_GH_REPO || 'birlikte-izle';
 const ffmpeg = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 
+// macOS'ta paketin içindeki adlar ASCII olmalı: electron-builder yardımcı süreçlerin
+// ("… Helper (GPU).app" vb.) dosya adlarını ürün adından üretip NFD'ye çeviriyor, Electron ise
+// onları Info.plist'teki (NFC) adla arıyor. "İ" iki biçimde farklı yazıldığı için uygulama
+// açılırken çöküyordu (v0.3.0). Kullanıcının gördüğü ad yine "Birlikte İzle" (CFBundleDisplayName).
+const isMac = process.platform === 'darwin';
+
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
   appId: 'com.birlikteizle.app',
-  productName: 'Birlikte İzle',
+  productName: isMac ? 'Birlikte Izle' : 'Birlikte İzle',
   executableName: 'birlikte-izle',
   artifactName: 'Birlikte-Izle-${version}-${os}-${arch}.${ext}',
   electronVersion: require('electron/package.json').version,
@@ -42,12 +48,16 @@ module.exports = {
     target: [{ target: 'dmg' }, { target: 'zip' }],
     category: 'public.app-category.entertainment',
     icon: 'build/icon.png',
+    // "Birlikte Izle.app", içinde "Birlikte Izle" ve "Birlikte Izle Helper…": hepsi aynı ASCII ad
+    executableName: 'Birlikte Izle',
     hardenedRuntime: true,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
     // Apple Developer sertifikası yoksa "ad-hoc" imza: Apple Silicon'da açılabilmesi için gerekli.
     identity: process.env.CSC_LINK ? undefined : '-',
     extendInfo: {
+      // Dock'ta ve menü çubuğunda görünen ad. CFBundleName ASCII kalmalı: Electron yardımcıları onunla arar.
+      CFBundleDisplayName: 'Birlikte İzle',
       NSCameraUsageDescription: 'Birlikte izlerken birbirinizi görebilmeniz için.',
       NSMicrophoneUsageDescription: 'Birlikte izlerken konuşabilmeniz için.',
       // Senkron mod: onun açtığı bölüm sende de var mı diye bakılır; gönderdiği bölümler İndirilenler'e kaydedilir.

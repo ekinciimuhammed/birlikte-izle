@@ -14,14 +14,19 @@ const exe = {
   linux: join(ROOT, 'release/linux-unpacked/birlikte-izle'),
 }[process.platform];
 
-/** release/mac-arm64 (Apple Silicon), release/mac (Intel) ya da release/mac-universal */
+/** release/mac-arm64 (Apple Silicon), release/mac (Intel) ya da release/mac-universal içindeki .app */
 function macExecutable() {
-  for (const dir of ['mac-arm64', 'mac', 'mac-universal']) {
-    const bin = join(ROOT, 'release', dir, 'Birlikte İzle.app', 'Contents', 'MacOS');
-    const name = existsSync(bin) && readdirSync(bin)[0];
+  const release = join(ROOT, 'release');
+  const dirs = existsSync(release) ? readdirSync(release).filter((d) => d.startsWith('mac')) : [];
+  // Bu Mac'in kendi mimarisi önce (Apple Silicon'da Intel paketi de varsa Rosetta'ya düşmesin)
+  dirs.sort((a, b) => Number(b === `mac-${process.arch}`) - Number(a === `mac-${process.arch}`));
+  for (const dir of dirs) {
+    const app = readdirSync(join(release, dir)).find((f) => f.endsWith('.app'));
+    const bin = app && join(release, dir, app, 'Contents', 'MacOS');
+    const name = bin && existsSync(bin) && readdirSync(bin)[0];
     if (name) return join(bin, name);
   }
-  return join(ROOT, 'release/mac-arm64/Birlikte İzle.app/Contents/MacOS/Birlikte İzle');
+  return join(release, 'mac-arm64', '*.app');
 }
 
 if (!existsSync(exe)) {

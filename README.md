@@ -111,7 +111,7 @@ VITE_SIGNAL_URL="https://birlikte-izle-signal.<hesabın>.workers.dev" npm run di
 Kendi derlediğin uygulama doğrudan açılır. Başka bir Mac'e gönderdiğin (internetten inen) imzasız uygulamayı macOS "hasarlı" ya da "açılamıyor" diye durdurursa, uygulamayı Uygulamalar klasörüne sürükledikten sonra Terminal'de bir kez:
 
 ```bash
-xattr -cr "/Applications/Birlikte İzle.app"
+xattr -cr "/Applications/Birlikte Izle.app"
 ```
 
 Testler Mac'te de çalışır; telefon ve uçtan uca testler Google Chrome, eklenti testi Microsoft Edge ister (`CHROME_PATH` / `EDGE_PATH` ile yol verilebilir). Pencereler ikinci ekran varsa orada açılır.
