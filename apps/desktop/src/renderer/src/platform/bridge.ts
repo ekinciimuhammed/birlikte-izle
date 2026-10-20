@@ -25,6 +25,10 @@ export interface MediaBridge {
 export interface ExtensionStatus {
   connected: boolean;
   browser: string | null;
+  /** Bağlanan eklentinin sürümü */
+  version?: string | null;
+  /** Uygulamanın içindeki (en yeni) eklentinin sürümü */
+  latest?: string | null;
 }
 
 export interface ExtensionBridge {

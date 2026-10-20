@@ -79,7 +79,7 @@ Reklamlı sitelerde reklam araları ikinizi de bekletir: birinde reklam girince 
 2. Tarayıcıda `chrome://extensions` (Edge: `edge://extensions`) → **Geliştirici modu**nu aç.
 3. **Paketlenmemiş öğe yükle** → açılan klasörü seç. Mac'te klasör uygulamanın içinde olduğu için seçim penceresi oraya girmez: pencerede **⌘⇧G**'ye basıp `/Applications/Birlikte Izle.app/Contents/Resources/extension` yaz.
 
-Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç); yeni siteler ve sitedeki kameralar (eklenti 0.4.0) o zaman gelir.
+Uygulamayı güncelleyince eklentiler sayfasında Birlikte İzle'nin **yenile** düğmesine bas (ya da tarayıcıyı kapatıp aç), sonra izlediğin sekmeyi de yenile; yeni siteler ve sitedeki kameralar (eklenti 0.4.0) o zaman gelir. Eklentiyi bir kopyadan yüklediysen (ör. klasörü masaüstüne kopyaladıysan) yenilemek o eski kopyayı yükler: uygulamadaki klasörün dosyalarını kopyanın üstüne kopyala. Bağlanan eklenti eskiyse uygulama söyler (Ayarlar → Genel ve tarayıcıda izleme kartı).
 
 Sonra tarayıcıda bir bölüm aç; uygulamanın izleme ekranında **Tarayıcıda · Netflix … → Birlikte izle** belirir. Ona basınca karşı tarafın tarayıcısında aynı bölüm kendiliğinden açılır.
 
@@ -213,7 +213,7 @@ npm run test:phone -w @birlikte/desktop           # masaüstü ↔ telefon taray
 npm run test:sync -w @birlikte/desktop            # senkron mod, bölüm gönderme, kayma, istatistik (42)
 npm run test:youtube -w @birlikte/desktop         # YouTube senkronu, gerçek YouTube; internet yoksa atlanır (18)
 npm run test:camera -w @birlikte/desktop          # kamera arka planı bulanıklaştırma (9)
-npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi + sitedeki kameralar, iki Edge + iki uygulama (43); EDGE_PATH ile Chrome for Testing da olur
+npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi + sitedeki kameralar, eski eklenti uyarısı, iki Edge + iki uygulama (45); EDGE_PATH ile Chrome for Testing da olur
 npm run test:web -w @birlikte/desktop             # uygulama içinde izleme: kanallar, canlı, sadece video, sayfada geri, çıkıp dönme, kendini onarma (39)
 npm run dist:dir -w @birlikte/desktop
 npm run test:packaged -w @birlikte/desktop        # paketlenmiş uygulama + ffmpeg, eklenti, uygulama içi sayfa (7)

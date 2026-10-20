@@ -4,7 +4,7 @@
 import { motion } from 'motion/react';
 import { Globe, PictureInPicture2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useExtension } from '../../media/browser';
+import { outdatedExtension, useExtension } from '../../media/browser';
 import { Button, Spinner } from '../../ui/controls';
 import { useWatch, watch } from '../../watch/controller';
 
@@ -12,6 +12,7 @@ export function BrowserStage({ partner, onSettings }: { partner: string; onSetti
   const { role, syncMode, webVideo, peerCamOn } = useWatch();
   const ext = useExtension();
   if (!webVideo) return null;
+  const old = outdatedExtension(ext);
 
   let status: string;
   let waiting = false;
@@ -36,8 +37,14 @@ export function BrowserStage({ partner, onSettings }: { partner: string; onSetti
           {waiting && <Spinner />}
           {status}
         </p>
+        {old && (
+          <p className="browser-warn" role="alert">
+            Tarayıcıdaki eklenti eski ({old}; uygulamadaki {ext.latest}). Sitedeki kameralar ve yenilikler için güncelle.
+          </p>
+        )}
         <div className="browser-actions">
           {ext.available && !ext.connected && role === 'guest' && <Button onClick={onSettings}>Eklentiyi kur</Button>}
+          {old && <Button onClick={onSettings}>Eklentiyi güncelle</Button>}
           {peerCamOn && <CamPip />}
         </div>
       </motion.div>
@@ -75,8 +82,10 @@ function CamPip() {
 
 /** Boş ekranda: tarayıcıda açık bir bölüm varsa "bunu birlikte izle" */
 export function BrowserOffer() {
-  const { available, connected, video } = useExtension();
+  const ext = useExtension();
+  const { available, connected, video } = ext;
   if (!available || !connected || !video) return null;
+  const old = outdatedExtension(ext);
   return (
     <motion.div className="browser-offer glass" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <div>
@@ -85,6 +94,7 @@ export function BrowserOffer() {
           Tarayıcıda · {video.site}
         </span>
         <strong>{video.title || video.site}</strong>
+        {old && <span className="browser-warn">Eklenti eski ({old}): Ayarlar → Genel'den güncelle</span>}
       </div>
       <Button onClick={() => watch.openBrowser()}>Birlikte izle</Button>
     </motion.div>

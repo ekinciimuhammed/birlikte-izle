@@ -318,6 +318,19 @@
   font-size: 14.5px;
 }
 
+.browser-card .browser-warn {
+  margin-top: -8px;
+  color: var(--orange);
+  font-size: 13.5px;
+}
+
+.browser-offer .browser-warn {
+  display: block;
+  margin-top: 2px;
+  color: var(--orange);
+  font-size: 12.5px;
+}
+
 .browser-actions {
   display: flex;
   flex-wrap: wrap;

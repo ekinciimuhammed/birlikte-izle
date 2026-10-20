@@ -4,7 +4,7 @@
 // sayfaları bunu taklit edemez).
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -15,6 +15,10 @@ const PORTS = [47652, 47653, 47654];
 export interface ExtensionStatus {
   connected: boolean;
   browser: string | null;
+  /** Bağlanan eklentinin sürümü (eski kopya mı?) */
+  version: string | null;
+  /** Uygulamanın içindeki eklentinin sürümü */
+  latest: string | null;
 }
 
 export function setupExtensionBridge(getWin: () => BrowserWindow | null) {
@@ -23,7 +27,8 @@ export function setupExtensionBridge(getWin: () => BrowserWindow | null) {
     [EXTENSION_ID, ...(process.env['BIRLIKTE_EXT_IDS'] ?? '').split(',')].filter(Boolean).map((id) => `chrome-extension://${id.trim()}`),
   );
   let client: WebSocket | null = null;
-  let status: ExtensionStatus = { connected: false, browser: null };
+  const latest = bundledVersion();
+  let status: ExtensionStatus = { connected: false, browser: null, version: null, latest };
   let port = 0;
 
   const toRenderer = (channel: string, payload: unknown) => {
@@ -53,24 +58,31 @@ export function setupExtensionBridge(getWin: () => BrowserWindow | null) {
     wss.on('connection', (sock) => {
       client?.close(4000, 'yenisi geldi');
       client = sock;
-      setStatus({ connected: true, browser: null });
+      setStatus({ connected: true, browser: null, version: null, latest });
       const ping = setInterval(() => sock.send(JSON.stringify({ t: 'ping' })), 20_000);
       sock.on('message', (data) => {
-        let msg: { t?: unknown; browser?: unknown };
+        let msg: { t?: unknown; browser?: unknown; version?: unknown };
         try {
           msg = JSON.parse(String(data));
         } catch {
           return;
         }
         if (typeof msg?.t !== 'string' || msg.t === 'pong') return;
-        if (msg.t === 'hello') setStatus({ connected: true, browser: typeof msg.browser === 'string' ? msg.browser.slice(0, 30) : null });
+        if (msg.t === 'hello') {
+          setStatus({
+            connected: true,
+            browser: typeof msg.browser === 'string' ? msg.browser.slice(0, 30) : null,
+            version: typeof msg.version === 'string' ? msg.version.slice(0, 20) : null,
+            latest,
+          });
+        }
         toRenderer('ext:message', msg);
       });
       sock.on('close', () => {
         clearInterval(ping);
         if (client !== sock) return;
         client = null;
-        setStatus({ connected: false, browser: null });
+        setStatus({ connected: false, browser: null, version: null, latest });
       });
     });
   };
@@ -88,6 +100,16 @@ export function setupExtensionBridge(getWin: () => BrowserWindow | null) {
     if (dir) shell.openPath(dir);
     return dir;
   });
+}
+
+function bundledVersion(): string | null {
+  const dir = extensionDir();
+  try {
+    const version = dir && JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')).version;
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Eklenti klasörü: kurulu uygulamada resources/extension, geliştirirken apps/extension */

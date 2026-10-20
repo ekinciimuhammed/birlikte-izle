@@ -22,6 +22,7 @@ import { YouTubeError, YouTubePlayer, youtubeId, youtubeStart } from '../media/y
 import { fetchIceServers } from '../net/api';
 import { checkConnection } from '../net/health';
 import { Link } from '../net/link';
+import { compareVersions } from '../util/version';
 import type { RoomClient } from '../net/room';
 import { watchStats, type StatsSummary, type TrackRole } from '../net/stats';
 import { bridge, isDesktop } from '../platform/bridge';
@@ -150,17 +151,6 @@ function mediaElement({ muted = false, autoplay = false } = {}) {
   v.autoplay = autoplay;
   v.muted = muted;
   return v;
-}
-
-/** "0.3.4" gibi sürümleri karşılaştırır: a eskiyse < 0 */
-function compareVersions(a: string, b: string) {
-  const x = a.split('.').map(Number);
-  const y = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const d = (x[i] || 0) - (y[i] || 0);
-    if (d) return d;
-  }
-  return 0;
 }
 
 /** Ayarlar'da aktarma (TURN) kapalıysa TURN sunucuları çıkarılır. */

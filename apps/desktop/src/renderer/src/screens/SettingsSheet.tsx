@@ -8,7 +8,7 @@ import { SETTINGS, type SettingKey } from '../settings/definitions';
 import { GROUPS, type GroupMeta } from '../settings/groups';
 import type { GroupId, SettingDef } from '../settings/registry';
 import { setSetting, settingDef, useSetting, useSettings } from '../settings/store';
-import { useExtension } from '../media/browser';
+import { outdatedExtension, useExtension } from '../media/browser';
 import { checkConnection, type HealthReport } from '../net/health';
 import { bridge } from '../platform/bridge';
 import { unpair, usePresence } from '../session/session';
@@ -329,8 +329,10 @@ function About() {
 
 /** Netflix ve diğerleri: tarayıcı eklentisinin durumu ve kurulumu (sadece masaüstü) */
 function BrowserExtension() {
-  const { available, connected, browser } = useExtension();
+  const ext = useExtension();
+  const { available, connected, browser } = ext;
   if (!available) return null;
+  const old = outdatedExtension(ext);
   return (
     <ListSection
       title="Netflix ve diğerleri"
@@ -338,9 +340,28 @@ function BrowserExtension() {
     >
       <ListRow label="Tarayıcı eklentisi">
         <span className="row-value">
-          <span className={cx('dot', connected ? 'green' : 'orange')} /> {connected ? `Bağlı · ${browser ?? 'tarayıcı'}` : 'Bağlı değil'}
+          <span className={cx('dot', connected && !old ? 'green' : 'orange')} />{' '}
+          {connected ? `Bağlı · ${browser ?? 'tarayıcı'}${old ? ` · eski sürüm (${old})` : ''}` : 'Bağlı değil'}
         </span>
       </ListRow>
+      {old && (
+        <ListRow
+          label={
+            <ol className="steps">
+              <li>
+                Eklenti eski: uygulamadaki sürüm <b>{ext.latest}</b>. Aşağıdan <b>Klasörü aç</b>
+              </li>
+              <li>
+                Tarayıcıya bir kopyasını yüklediysen (ör. masaüstüne kopyaladığın klasör) bu klasördeki dosyaları o kopyanın
+                üstüne kopyala
+              </li>
+              <li>
+                <code>chrome://extensions</code> → Birlikte İzle → <b>yenile</b>, sonra izlediğin sekmeyi de yenile
+              </li>
+            </ol>
+          }
+        />
+      )}
       {!connected && (
         <ListRow
           label={

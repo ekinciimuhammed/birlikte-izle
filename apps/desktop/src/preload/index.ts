@@ -46,9 +46,9 @@ contextBridge.exposeInMainWorld('birlikte', {
   },
   /** Tarayıcı eklentisi (Netflix vb. tarayıcıda oynar, kontrol buradan) */
   extension: {
-    status: (): Promise<{ connected: boolean; browser: string | null }> => ipcRenderer.invoke('ext:status'),
-    onStatus: (fn: (s: { connected: boolean; browser: string | null }) => void) => {
-      const handler = (_e: unknown, s: { connected: boolean; browser: string | null }) => fn(s);
+    status: (): Promise<{ connected: boolean; browser: string | null; version: string | null; latest: string | null }> => ipcRenderer.invoke('ext:status'),
+    onStatus: (fn: (s: { connected: boolean; browser: string | null; version: string | null; latest: string | null }) => void) => {
+      const handler = (_e: unknown, s: { connected: boolean; browser: string | null; version: string | null; latest: string | null }) => fn(s);
       ipcRenderer.on('ext:status', handler);
       return () => ipcRenderer.removeListener('ext:status', handler);
     },

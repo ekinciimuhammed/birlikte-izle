@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { bridge, type ExtensionStatus } from '../platform/bridge';
+import { compareVersions } from '../util/version';
 import type { Playable } from './player';
 
 export interface BrowserVideo {
@@ -28,8 +29,20 @@ export const useExtension = create<ExtensionState>(() => ({
   available: !!bridge.extension,
   connected: false,
   browser: null,
+  version: null,
+  latest: null,
   video: null,
 }));
+
+/**
+ * Tarayıcıdaki eklenti uygulamanınkinden eskiyse kurulu sürüm (yoksa null). Eklenti çoğu zaman bir
+ * kopyadan yüklenir; uygulama güncellenince o kopya eski kalır ve yenilikler (sitedeki kameralar) gelmez.
+ */
+export function outdatedExtension({ connected, version, latest }: ExtensionStatus): string | null {
+  if (!connected || !latest) return null;
+  if (!version) return '0.3.4 ya da öncesi';
+  return compareVersions(version, latest) < 0 ? version : null;
+}
 
 /** Oynatıcının konuştuğu sekme: tarayıcıdaki (eklenti) ya da uygulamanın içindeki sayfa */
 export interface TabLink {
@@ -50,7 +63,13 @@ export function extensionLink(): TabLink | null {
     send: (msg) => ext.send(msg),
     onMessage: (fn) =>
       ext.onMessage((m) => {
-        if (m.t === 'hello') useExtension.setState({ connected: true, browser: typeof m.browser === 'string' ? m.browser : null });
+        if (m.t === 'hello') {
+          useExtension.setState({
+            connected: true,
+            browser: typeof m.browser === 'string' ? m.browser : null,
+            version: typeof m.version === 'string' ? m.version : null,
+          });
+        }
         else fn(m);
       }),
     getVideo: () => useExtension.getState().video,

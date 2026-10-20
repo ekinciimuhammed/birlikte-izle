@@ -166,6 +166,12 @@ try {
   check('kameralar: A\'nın sekmesinde Bade\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(A, pa));
   check('kameralar: B\'nin sekmesinde Ali\'nin görüntüsü (açıksa) geliyor', await peerCamInTab(B, pb));
   check('kameralar: kendi görüntüsü de var', await until(pa, () => /^[1-9]/.test(document.querySelector('birlikte-kameralar')?.dataset.self ?? ''), null, 15_000));
+  // Eklenti uygulamanınkinden eskiyse (eski bir kopya yüklenmiş) uygulama söyler
+  const helloAs = (ctx, version) => ctx.serviceWorkers()[0].evaluate((v) => toApp({ t: 'hello', browser: browserName(), version: v }), version);
+  await helloAs(EB, '0.3.4');
+  check('eski eklenti: B uyarıyor ("eklenti eski", güncelle düğmesi)', await visible(B.locator('.browser-warn', { hasText: 'eski (0.3.4' }), 5000));
+  await helloAs(EB, await EB.serviceWorkers()[0].evaluate(() => VERSION));
+  check('eski eklenti: güncel sürümde uyarı yok', await until(B, () => !document.querySelector('.browser-warn'), null, 5000));
 
   // --- Uygulamadan kontrol ---------------------------------------------------------------------
   await cmd(A, 'play');
