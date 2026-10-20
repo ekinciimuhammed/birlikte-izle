@@ -47,11 +47,15 @@ jobs:
 
       - name: Kurulum dosyasını üret ve yayınla
         working-directory: apps/desktop
-        run: npx electron-builder --config electron-builder.config.cjs ${{ matrix.hedef }} --publish always
+        shell: bash
+        run: |
+          # İsteğe bağlı Apple Developer sertifikası. Yoksa değişken hiç tanımlanmamalı: boş değeri
+          # electron-builder dosya yolu sanıp "not a file" hatası veriyor. (Yoksa ad-hoc imzalanır.)
+          if [ -n "$MAC_CSC_LINK" ]; then export CSC_LINK="$MAC_CSC_LINK" CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD"; fi
+          npx electron-builder --config electron-builder.config.cjs ${{ matrix.hedef }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BIRLIKTE_GH_OWNER: ${{ github.repository_owner }}
           BIRLIKTE_GH_REPO: ${{ github.event.repository.name }}
-          # İsteğe bağlı: Apple Developer sertifikası (yoksa ad-hoc imzalanır)
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}

@@ -60,10 +60,11 @@ module.exports = {
 
   linux: {
     target: ['AppImage', 'deb'],
+    // .deb paketi bakımcı ister (gerçek e-posta yerine GitHub'ın gizli adresi)
+    maintainer: 'Birlikte İzle <ekinciimuhammed@users.noreply.github.com>',
     category: 'AudioVideo',
     icon: 'build/icon.png',
     synopsis: 'Uzakta olsanız da yan yana gibi.',
-    maintainer: 'Birlikte İzle',
   },
 
   publish: owner ? [{ provider: 'github', owner, repo, releaseType: 'release' }] : null,

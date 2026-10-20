@@ -5,6 +5,7 @@
   "description": "Birlikte İzle masaüstü uygulaması",
   "productName": "Birlikte İzle",
   "author": "Birlikte İzle",
+  "homepage": "https://github.com/ekinciimuhammed/birlikte-izle",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
