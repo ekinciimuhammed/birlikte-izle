@@ -24,8 +24,11 @@ jobs:
             hedef: --win
           - os: macos-latest # Apple Silicon (arm64)
             hedef: --mac --arm64
-          - os: macos-15-intel # Intel Mac (x64)
+          # Intel Mac (x64): Apple Silicon makinesinde çapraz derlenir. Intel macOS 15 makinesinde
+          # dmg aracı (dmgbuild/mac_alias) "'I' format requires 0 <= number <= 4294967295" ile çöküyor.
+          - os: macos-latest
             hedef: --mac --x64
+            ffmpeg_arch: x64
           - os: ubuntu-latest
             hedef: --linux
     runs-on: ${{ matrix.os }}
@@ -39,6 +42,14 @@ jobs:
 
       # ffmpeg-static ve Electron, çalıştığı makinenin platformuna uygun dosyayı indirir.
       - run: npm ci
+
+      # ffmpeg-static makinenin mimarisini indirir; çapraz derlemede hedef mimariyi indir ve doğrula.
+      - name: Hedef mimari için ffmpeg
+        if: matrix.ffmpeg_arch
+        run: |
+          rm -f node_modules/ffmpeg-static/ffmpeg
+          npm_config_arch=${{ matrix.ffmpeg_arch }} node node_modules/ffmpeg-static/install.js
+          file node_modules/ffmpeg-static/ffmpeg | tee /dev/stderr | grep -q x86_64
 
       - name: Uygulamayı derle
         run: npm run build -w @birlikte/desktop
