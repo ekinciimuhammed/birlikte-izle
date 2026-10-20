@@ -38,6 +38,7 @@ export interface ExtensionBridge {
 export interface Bridge {
   platform: string;
   testMode?: boolean;
+  embedLocal?: boolean;
   version?(): Promise<string>;
   settings: {
     load(): Promise<Record<string, unknown>>;

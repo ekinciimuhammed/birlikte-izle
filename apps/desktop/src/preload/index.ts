@@ -5,6 +5,8 @@ import type { AudioMode, FileRef, MediaInfo, PrepareProgress, SubtitleSource } f
 contextBridge.exposeInMainWorld('birlikte', {
   platform: process.platform,
   testMode: process.env['BIRLIKTE_TEST'] === '1',
+  /** Uygulama içi izleme testi: yerel test sayfaları da uygulamanın içinde açılır */
+  embedLocal: process.env['BIRLIKTE_EMBED_LOCAL'] === '1',
   version: (): Promise<string> => ipcRenderer.invoke('app:version'),
   settings: {
     load: (): Promise<Record<string, unknown>> => ipcRenderer.invoke('settings:load'),

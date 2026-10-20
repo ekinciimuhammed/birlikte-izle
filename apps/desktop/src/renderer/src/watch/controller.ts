@@ -11,8 +11,10 @@ import { create } from 'zustand';
 import type { FileRef, PeerMessage, PlayAction, Reaction, SignalData } from '@birlikte/protocol';
 import { mediaUrl, type MediaInfo } from '../../../shared/media';
 import { BackgroundBlur } from '../media/background';
-import { BrowserPlayer, useExtension } from '../media/browser';
+import { BrowserPlayer, extensionLink, samePage, useExtension, type BrowserVideo } from '../media/browser';
 import { sameSite, type Channel } from '../media/channels';
+import { useWebPage, WebView } from '../media/webview';
+import { isEmbeddable } from '../../../shared/web';
 import { MoviePlayer, type Playable, type WebVideo } from '../media/player';
 import { audioLabel, pickAudio, planPlayback, type Step } from '../media/playback';
 import { YouTubeError, YouTubePlayer, youtubeId, youtubeStart } from '../media/youtube';
@@ -21,7 +23,7 @@ import { checkConnection } from '../net/health';
 import { Link } from '../net/link';
 import type { RoomClient } from '../net/room';
 import { watchStats, type StatsSummary, type TrackRole } from '../net/stats';
-import { bridge } from '../platform/bridge';
+import { bridge, isDesktop } from '../platform/bridge';
 import { SETTINGS, type SettingKey } from '../settings/definitions';
 import { getSetting, isSettingKey, onSettingChange, setSetting, settingDef } from '../settings/store';
 import { SubtitleManager, type SubtitleView } from '../subtitles/manager';
@@ -73,7 +75,7 @@ export interface WatchState {
   audioLabel: string | null;
   subtitles: SubtitleView;
   /** Bu taraftaki oynatıcı: dosya (<video>), YouTube ya da tarayıcı (eklenti); yayından izlerken null */
-  source: 'file' | 'youtube' | 'browser' | null;
+  source: 'file' | 'youtube' | 'browser' | 'web' | null;
   /** Tarayıcıda izlenen bölüm (Netflix vb.) */
   webVideo: WebVideo | null;
   /** Senkron mod: ikimiz de kendi kopyamızdan oynatıyoruz (yayın yok, kayıpsız) */
@@ -90,6 +92,10 @@ export interface WatchState {
   connectionHelp: string | null;
   reactions: { id: number; kind: Reaction }[];
   stats: StatsSummary | null;
+  /** Tarayıcıdaki ya da uygulama içindeki canlı yayın: zaman çubuğu yerine "CANLI" */
+  live: boolean;
+  /** Uygulama içindeki sayfada "sadece video" (oynatıcı alanı kaplar) ya da sayfanın tamamı */
+  webFocus: boolean;
 }
 
 const initialState = (): WatchState => ({
@@ -123,6 +129,8 @@ const initialState = (): WatchState => ({
   connectionHelp: null,
   reactions: [],
   stats: null,
+  live: false,
+  webFocus: true,
 });
 
 export const useWatch = create<WatchState>(initialState);
@@ -153,9 +161,12 @@ class WatchController {
   readonly remoteCam = mediaElement({ autoplay: true });
   private readonly filePlayer = new MoviePlayer(this.localMovie);
   readonly youtube = new YouTubePlayer();
-  readonly browser = new BrowserPlayer();
+  readonly browser = new BrowserPlayer(extensionLink());
+  /** Uygulamanın içindeki sayfa (Kanallar, YouTube): sadece masaüstünde */
+  readonly webview = isDesktop ? new WebView() : null;
+  readonly web = new BrowserPlayer(this.webview?.link ?? null);
   private pendingWeb: WebVideo | null = null; // guest: eklenti bağlanınca açılacak
-  private pendingChannel: { url: string; until: number } | null = null; // seçtiğim kanalda video belirince birlikte izle
+  private pendingChannel: { url: string; name: string; embedded: boolean; until: number } | null = null; // seçtiğim kanalda video belirince birlikte izle
   /** Şu an kullanılan oynatıcı (host'ta film, guest'te senkron moddaki kopya) */
   private player: Playable = this.filePlayer;
 
@@ -234,7 +245,7 @@ class WatchController {
   });
 
   constructor() {
-    for (const player of [this.filePlayer, this.youtube, this.browser] as Playable[]) {
+    for (const player of [this.filePlayer, this.youtube, this.browser, this.web] as Playable[]) {
       const on = (type: string, fn: () => void) =>
         player.events.addEventListener(type, () => player === this.player && fn());
       on('loadedmetadata', () => this.publishMovie());
@@ -257,8 +268,11 @@ class WatchController {
       on('titlechange', () => this.onTitleChange());
     }
     // Guest tarayıcıda elle durdurdu/oynattı/sardı (Netflix'te boşluk tuşu gibi): host'a komut olsun.
-    const fromBrowser = (type: string, fn: (e: Event) => void) =>
-      this.browser.events.addEventListener(type, (e) => this.player === this.browser && get().role === 'guest' && get().syncMode && fn(e));
+    const fromBrowser = (type: string, fn: (e: Event) => void) => {
+      for (const player of [this.browser, this.web]) {
+        player.events.addEventListener(type, (e) => this.player === player && get().role === 'guest' && get().syncMode && fn(e));
+      }
+    };
     fromBrowser('userpause', () => this.command('pause'));
     fromBrowser('userplay', () => this.command('play'));
     fromBrowser('userseek', (e) => this.command('seek', Number((e as CustomEvent).detail)));
@@ -271,6 +285,25 @@ class WatchController {
         this.pendingChannel = null;
         if (Date.now() < channel.until && get().active) this.openBrowser();
       }
+    });
+    useWebPage.subscribe((s, prev) => {
+      const video = s.video;
+      if (!video || video === prev.video) return;
+      // Kanallar: uygulama içinde seçtiğim kanalda video belirdi → birlikte izle
+      const channel = this.pendingChannel;
+      if (channel?.embedded && sameSite(video.url, channel.url)) {
+        this.pendingChannel = null;
+        if (Date.now() < channel.until && get().active) return this.shareTab(this.web, video, channel.name);
+      }
+      // Uygulama içinde başka bir bölüme ya da kanala geçtim: o da takip etsin (kumanda gibi)
+      const shared = get().webVideo;
+      if (get().role === 'host' && this.player === this.web && shared && !samePage(video.url, shared.url)) this.shareTab(this.web, video);
+    });
+    // Uygulama içindeki sayfadan çıkılınca kapat (arkada ses kalmasın); hemen geri dönülüyorsa dokunma.
+    useWatch.subscribe((s, prev) => {
+      if (prev.source === 'web' && s.source !== 'web') setTimeout(() => get().source !== 'web' && this.webview?.close(), 0);
+      // İzlerken "sadece video"; önizlemede (çerez onayı, oynat düğmesi) sayfanın tamamı
+      this.webview?.setFocus(s.source === 'web' && s.role !== 'idle' && s.webFocus);
     });
     onSettingChange((key, value, origin) => this.onSetting(key, value, origin));
     bridge.media?.onProgress((p) => {
@@ -705,7 +738,8 @@ class WatchController {
         // O bir kanal seçti: benim tarayıcımda da açılsın. Onda video belirince birlikte izleme başlar.
         this.pendingChannel = null;
         this.hud(`${this.partnerName()} kanal açtı: ${m.name}`, 'play');
-        if (useExtension.getState().connected) bridge.extension?.send({ t: 'open', url: m.url, replace: true });
+        if (this.canEmbed(m.url)) this.showWebPage(m.url);
+        else if (useExtension.getState().connected) bridge.extension?.send({ t: 'open', url: m.url, replace: true });
         else set({ notice: `${this.partnerName()} ${m.name} kanalını açtı. Birlikte izlemek için tarayıcı eklentisini kur (Ayarlar → Genel).` });
         break;
 
@@ -889,7 +923,7 @@ class WatchController {
     if (clearSubtitles) this.subtitles.clear();
     this.usePlayer(player);
     if (player.kind === 'file') this.ensureCapture();
-    set({ role: 'host', title, pos: 0, duration: 0, playing: false, source: player.kind, notice: null });
+    set({ role: 'host', title, pos: 0, duration: 0, playing: false, source: player === this.web ? 'web' : player.kind, notice: null });
     this.updateStatus();
     this.updateDucking();
   }
@@ -1131,12 +1165,18 @@ class WatchController {
 
   private tick() {
     const { role } = get();
+    const live = this.isTab(this.player) && this.player.isLive;
     if (role === 'host') {
-      set({ pos: this.player.time, duration: this.player.duration, playing: this.player.playing });
+      set({ pos: this.player.time, duration: this.player.duration, playing: this.player.playing, live });
     } else if (role === 'guest' && this.remoteState) {
       const pos = get().syncMode ? this.player.time : this.seenPosition();
-      set({ pos, duration: this.remoteState.duration, playing: this.remoteState.playing });
+      set({ pos, duration: this.remoteState.duration, playing: this.remoteState.playing, live: get().syncMode && live });
     }
+  }
+
+  /** Tarayıcıdaki (eklenti) ya da uygulama içindeki sayfanın oynatıcısı mı? */
+  private isTab(player: Playable): player is BrowserPlayer {
+    return player === this.browser || player === this.web;
   }
 
   // --- Senkron mod: ikimiz de kendi kopyamızdan ---------------------------------------------
@@ -1269,7 +1309,7 @@ class WatchController {
     if (!get().syncMode || !s || this.followSeeking || p.seeking || p.buffering || !p.hasSource) return;
     // Tarayıcıdaki canlı yayında iki oynatıcının zamanı karşılaştırılamaz: sadece oynat/durdur eşitlenir.
     // (Dosya oynatıcısındaki isLive "anında dönüştürme" demek; o sarılarak eşitlenir.)
-    if (p === this.browser && p.isLive) {
+    if (this.isTab(p) && p.isLive) {
       if (s.playing && !p.playing && !p.ended) p.play().catch(() => {});
       else if (!s.playing && p.playing) p.pause();
       return;
@@ -1406,6 +1446,8 @@ class WatchController {
    */
   private openYouTubeInBrowser(id: string) {
     const url = `https://www.youtube.com/watch?v=${id}`;
+    // Uygulama içinde YouTube'un kendi sitesi açılır: gömme kısıtı orada yok.
+    if (this.webview) return this.openChannel({ name: 'YouTube', url });
     const ext = useExtension.getState();
     const why = 'Bu videonun sahibi, YouTube dışında oynatılmasına izin vermiyor.';
     if (ext.connected) {
@@ -1421,7 +1463,7 @@ class WatchController {
 
   /** Host'ta başlık sonradan gelirse (YouTube, tarayıcı) güncelle */
   private onTitleChange() {
-    const title = this.player.kind === 'youtube' ? this.youtube.title : this.player.kind === 'browser' ? this.browser.title : '';
+    const title = this.player.kind === 'youtube' ? this.youtube.title : this.isTab(this.player) ? this.player.title : '';
     if (get().role !== 'host' || !title || title === get().title) return;
     const web = get().webVideo;
     set({ title, ...(web && { webVideo: { ...web, title } }) });
@@ -1436,6 +1478,13 @@ class WatchController {
    * sekme oraya geçer. Bende video belirince birlikte izlemeye geçilir.
    */
   openChannel(channel: Channel) {
+    if (this.canEmbed(channel.url)) {
+      // Uygulamanın içinde: sayfa hemen burada açılır (çerez onayı, oynat düğmesi…); video belirince birlikte izleriz.
+      this.showWebPage(channel.url);
+      this.send({ t: 'channel', name: channel.name, url: channel.url });
+      this.pendingChannel = { url: channel.url, name: channel.name, embedded: true, until: Date.now() + 15 * 60_000 };
+      return;
+    }
     const ext = useExtension.getState();
     if (!ext.connected) {
       if (!ext.available) return set({ notice: 'Kanallar masaüstü uygulamasında, tarayıcı eklentisiyle çalışır.' });
@@ -1445,42 +1494,67 @@ class WatchController {
     set({ notice: null });
     bridge.extension?.send({ t: 'open', url: channel.url, replace: true });
     this.send({ t: 'channel', name: channel.name, url: channel.url });
-    this.pendingChannel = { url: channel.url, until: Date.now() + 15 * 60_000 };
+    this.pendingChannel = { url: channel.url, name: channel.name, embedded: false, until: Date.now() + 15 * 60_000 };
     this.hud(`${channel.name} açılıyor`, 'play');
+  }
+
+  /** Uygulama içindeki sayfada "sadece video" ile sayfanın tamamı arasında geçiş */
+  toggleWebFocus() {
+    set({ webFocus: !get().webFocus });
+  }
+
+  /** Bu bağlantı uygulamanın içinde açılabilir mi? (Netflix gibi şifreli platformlar tarayıcıda) */
+  private canEmbed(url: string) {
+    return !!this.webview && isEmbeddable(url, bridge.embedLocal);
+  }
+
+  /** Uygulama içindeki sayfayı göster ve aç; o an izlenen bırakılır (video belirince birlikte izlenir) */
+  private showWebPage(url: string) {
+    if (get().role === 'host') this.stopHosting();
+    if (get().role !== 'idle') this.becomeIdle();
+    set({ source: 'web', notice: null });
+    this.webview?.open(url);
   }
 
   /** Host: tarayıcıda açık olan bölümü paylaş. O da kendi tarayıcısında açar, birlikte izleriz. */
   openBrowser() {
     const video = useExtension.getState().video;
     if (!video) return this.hud('Tarayıcıda açık bir bölüm yok', 'video-off');
+    this.shareTab(this.browser, video);
+  }
+
+  /** Host: sekmedeki (tarayıcı ya da uygulama içi) bölümü paylaş; o da kendi tarafında açar. */
+  private shareTab(player: BrowserPlayer, video: BrowserVideo, name?: string) {
     ++this.loadToken;
     if (this.media) bridge.media?.cancel(this.media.id);
     this.media = null;
-    const title = video.title || video.site;
-    this.becomeHost(title, true, false, this.browser);
+    const title = name || video.title || video.site;
+    this.becomeHost(title, true, false, player);
     this.link?.setTrack('movie-video', null, this.movieStream);
     this.link?.setTrack('movie-audio', null, this.movieStream);
-    this.browser.attach();
+    player.attach();
     set({ title, duration: video.duration, webVideo: { site: video.site, url: video.url, title } });
     this.updateStatus();
     this.sendMedia();
     this.broadcast();
   }
 
-  /** Guest: aynı bölümü kendi tarayıcımda aç (eklenti) ve host'u takip et */
+  /** Guest: aynı bölümü kendi tarafımda aç (uygulama içinde ya da tarayıcıda, eklenti) ve host'u takip et */
   private async followBrowser(web: WebVideo) {
     const key = `web:${web.url}`;
     if (this.syncFor === key) return;
-    set({ source: 'browser', webVideo: web });
-    if (!bridge.extension || !useExtension.getState().connected) {
+    const inApp = this.canEmbed(web.url);
+    const player = inApp ? this.web : this.browser;
+    set({ source: inApp ? 'web' : 'browser', webVideo: web });
+    if (!inApp && (!bridge.extension || !useExtension.getState().connected)) {
       this.pendingWeb = web; // eklenti kurulunca/bağlanınca
       return;
     }
     this.pendingWeb = null;
     const token = ++this.syncToken;
-    this.usePlayer(this.browser);
+    this.usePlayer(player);
     try {
-      await this.browser.open(web.url);
+      await player.open(web.url);
     } catch (err) {
       if (token !== this.syncToken) return;
       this.hud(err instanceof Error ? err.message : 'Tarayıcıda açılamadı', 'video-off');
@@ -1731,6 +1805,7 @@ class WatchController {
     }
     this.youtube.setVolume(clamp(volume * this.duckFactor, 0, 1), muted);
     this.browser.setVolume(clamp(volume * this.duckFactor, 0, 1), muted);
+    this.web.setVolume(clamp(volume * this.duckFactor, 0, 1), muted);
     set({ volume, muted });
   }
 

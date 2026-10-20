@@ -137,11 +137,13 @@ Hedef: hangi dosya, hangi işletim sistemi, hangi cihaz olursa olsun çalışsı
 
 - [x] Netflix vb. için tarayıcı eklentisi (`apps/extension`, Chrome/Edge/Brave/Opera): ikimiz de kendi hesabımızla, kendi tarayıcımızda; oynat/durdur/sar uygulamadan da tarayıcıdan da iki tarafa geçer. Karşının tarayıcısında aynı bölüm kendiliğinden açılır. Netflix'te sarma sitenin kendi oynatıcısıyla. Kamerası "resim içinde resim" ile tarayıcının üstünde kalabilir.
 - [x] Eklentiye yeni siteler: TV+ ve kanalların kendi siteleri (atv, Kanal D, Show TV, Star TV, NOW, TV8). TRT İzle artık tabii'ye yönleniyor (zaten destekli).
+- [x] Kanallar paneli: canlı TV ve platformlar; seçilen kanal iki tarafta birden açılır, video belirince birlikte izleme kendiliğinden başlar.
+- [x] Uygulama içinde izleme: kanal siteleri ve YouTube gömülü sayfada (webview), "sadece video" görünümü, canlıda "CANLI". Şifreli platformlar (Netflix vb.) tarayıcıda kalıyor.
 - [x] Kamera arka plan bulanıklaştırma (MediaPipe selfie modeli, bu bilgisayarda; Hafif / Güçlü)
 - [x] "Birlikte izlediğimiz saatler": ana ekranda toplam süre, bölüm sayısı, son 7 gün
 - [ ] **Senin yapacakların:** iki bilgisayarda da eklentiyi yükle (README → "Netflix ve diğerleri"), gerçek Netflix'le dene
 
-**Testler:** eklenti 21/21 (iki uygulama + eklentili iki Edge + yerel video sitesi) · kamera 9/9 (keskin kenarlar ‰9,6 → 0) · paket 6/6 (eklenti klasörü pakette).
+**Testler:** eklenti 36/36 (iki uygulama + eklentili iki tarayıcı + yerel video sitesi; iframe, kanallar, canlı) · uygulama içi 26/26 · kamera 9/9 (keskin kenarlar ‰9,6 → 0) · paket 7/7 (eklenti klasörü ve uygulama içi sayfa betiği pakette).
 
 **Öğrenilenler**
 - Chrome 137+ komut satırından eklenti yüklemeyi kapattı; otomatik test Edge ile. Kullanıcılar için "Paketlenmemiş öğe yükle" Chrome'da da çalışıyor.
@@ -155,6 +157,9 @@ Hedef: hangi dosya, hangi işletim sistemi, hangi cihaz olursa olsun çalışsı
 - Bilgisayarlardan biri mobil veriye (telefondan internet paylaşımı) geçince ikisi de "bağlanıyor"da kaldı: yayındaki sunucuda TURN tanımlı değildi, mobil operatörün ortak adresi (CGNAT) doğrudan bağlantıya izin vermiyor. Uygulama artık 20 sn'de bağlanamazsa ağı test edip sebebini söylüyor; Ayarlar → Bağlantı'da elle de test edilebiliyor. İnternet geri gelince ICE beklemeden yenileniyor, sessizce ölen sunucu bağlantısı en geç 60 sn'de fark ediliyor, TURN kimlik bilgileri (24 saat geçerli) uzun oturumda tazeleniyor.
 - Kanal D ve TV8 oynatıcıyı kendi alan adlarındaki bir iframe'de açıyor: eklentinin sayfa betiği artık tüm çerçevelerde çalışıyor, arka plan videonun olduğu çerçeveyi takip edip komutları ona gönderiyor, paylaşılan bağlantı ve başlık izleme sayfasından (sekmeden) alınıyor. Gerçek sitelerde denendi: altısında da video bulundu; atv'de video oynat düğmesine basınca, NOW'da çerez sorusundan sonra oluşuyor. Reklam arası "durdu" sayılıyor, iki taraf birlikte bekliyor.
 - Eklenti testi markalı Chrome yerine Playwright'ın Chrome for Testing'iyle de çalışıyor (EDGE_PATH). Bu bilgisayarda gerçek uygulama açıkken test eklentisi varsayılan kapıda ona bağlanıyordu; test artık kapıyı yazdıktan sonra yeniden bağlanıyor.
+- Kanal sitelerinin canlı yayınları süreyi sonsuz değil kayan pencere (60–300 sn) olarak bildiriyor; canlı, sayfa adresinden (/canli-yayin) ya da oynarken büyüyen süreden anlaşılıyor. Canlıda iki oynatıcının zamanı karşılaştırılamaz: sadece oynat/durdur eşitleniyor (yoksa karşı taraf yanlış yere sarıyor).
+- Uygulama içi sayfa: Electron'da kanal sitelerinin canlı yayınları ve YouTube oynuyor (H.264/AAC, HLS). HTML tam ekranı gömülü sayfada bütün pencereyi kaplıyor (kameralar ve kontroller kaybolur), bu yüzden "sadece video" CSS ile: oynatıcı kutusu sabit konumda alanı kaplıyor, kutudan videoya giden katmanlar dolduruluyor, geri kalanı gizleniyor. YouTube oynatıcıyı yeniden çizince işaret siliniyor; betik yarım saniyede bir yerinde mi diye bakıp yeniden kuruyor. Gömülü sayfa ilk boş sayfasını yüklemeden adres değiştirilirse Electron yeni adresi yok sayıyor (paket testinde yakalandı).
+- Netflix vb. uygulama içinde: castLabs'ın Widevine'li Electron'u (ECS) + ücretsiz VMP imzası (EVS) gerekiyor; ECS Electron sürümlerinin gerisinde, Windows'ta imzasız NSIS akışında VMP imzası için kanca yok, yalnızca L3 (yazılım) CDM ve EVS'nin sürekliliği garanti değil. Şimdilik tarayıcı + eklentide kalındı.
 - Testleri art arda çok kez çalıştırınca Windows'un geçici port havuzu (16.384) TIME_WAIT bağlantılarıyla doluyor; Electron'un hata ayıklama portu açılamıyor ve testler "failed to launch" ile düşüyor. Uygulamadan değil; testler tek tek ya da yeniden başlatmadan sonra geçiyor.
 
 ---

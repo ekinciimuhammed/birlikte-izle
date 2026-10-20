@@ -24,6 +24,7 @@
     "test:youtube": "node test/youtube.mjs",
     "test:camera": "node test/camera.mjs",
     "test:extension": "node test/extension.mjs",
+    "test:web": "node test/web.mjs",
     "icon": "node scripts/make-icon.mjs",
     "dist": "electron-vite build && electron-builder --config electron-builder.config.cjs",
     "dist:dir": "electron-vite build && electron-builder --config electron-builder.config.cjs --dir"

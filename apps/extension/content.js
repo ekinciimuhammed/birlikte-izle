@@ -72,6 +72,9 @@
     return birlikteCleanTitle(document.title, name) || name;
   }
 
+  /** Canlı yayın mı? İki oynatıcının zamanı karşılaştırılamaz (uygulama konumu eşitlemez) */
+  const isLive = () => livePage || growing || !Number.isFinite(video.duration);
+
   function state() {
     return {
       t: 'state',
@@ -79,8 +82,7 @@
       time: video.currentTime || 0,
       duration: Number.isFinite(video.duration) ? video.duration : 0,
       rate: video.playbackRate || 1,
-      // Canlı yayın: iki oynatıcının zamanı karşılaştırılamaz (uygulama konumu eşitlemez)
-      live: livePage || growing || !Number.isFinite(video.duration),
+      live: isLive(),
       seeking: video.seeking,
       buffering: !video.paused && video.readyState < 3,
       ended: video.ended,
@@ -100,7 +102,8 @@
       site: site ? site.name : location.hostname,
       title: title(),
       url: birlikteCleanUrl(location.href),
-      duration: Number.isFinite(video.duration) ? video.duration : 0,
+      // Canlıda süre (kayan pencere) sürekli değişir: bildirilmez, yoksa her yarım saniyede "yeni video" olur
+      duration: !isLive() && Number.isFinite(video.duration) ? video.duration : 0,
       // iframe'deysek bağlantı ve başlık oynatıcınınki olur; arka plan onları sekmeden (izleme sayfası) alır.
       top: window === window.top,
     };

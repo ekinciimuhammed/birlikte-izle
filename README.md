@@ -6,7 +6,8 @@ Uzakta olsanız da yan yana gibi: biri dizi açar, öbürü aynı anda izler. İ
 - **Her işletim sistemi:** Windows, macOS (Apple Silicon + Intel), Linux. Otomatik güncellenir.
 - **Her cihaz:** Kurmadan, tarayıcıdan (telefondan da) katılabilir.
 - **Kayıpsız izleme:** Bölüm ikinizde de varsa ikiniz de kendi kopyanızdan, tam kalitede ve senkron izlersiniz. Yoksa "Bölümü ona gönder" ile karşıya gider.
-- **YouTube, Netflix ve diğerleri:** YouTube bağlantısı yapıştır; Netflix, Disney+, Prime Video, TV+, Exxen, BluTV, Gain, tabii, kanalların kendi siteleri… için tarayıcı eklentisi.
+- **Kanallar:** atv, Kanal D, Show TV, Star TV, NOW, TV8 canlı yayınları ve YouTube uygulamanın içinde açılır; tarayıcıya gitmeye gerek yok.
+- **Netflix ve diğerleri:** Netflix, Disney+, Prime Video, TV+, Exxen, Gain, tabii… şifreli olduğu için tarayıcıda oynar; tarayıcı eklentisi onları uygulamaya bağlar.
 - **Kamera:** Arka planı bulanıklaştırma (bilgisayarda işlenir), "birlikte izlediğiniz saatler" kartı.
 
 Yol haritası ve durum: [PLAN.md](PLAN.md)
@@ -50,6 +51,16 @@ Normalde açan taraf filmi karşıya yayınlar (kalite internet hızına bağlı
 ## YouTube
 
 İzleme ekranında **YouTube bağlantısı yapıştır** kutusuna bağlantıyı yapıştır (ya da ekrandayken ⌘V / Ctrl+V). İkiniz de YouTube'dan, aynı anda izlersiniz; yayın yok. Video, sinyal sunucusundaki küçük bir aracı sayfada (`yt.html`) oynar; bu yüzden sunucu yayında olmalı.
+
+## Kanallar (uygulamanın içinde)
+
+İzleme ekranında **Kanallar** (üst çubuktaki TV düğmesi ya da boş ekrandaki düğmeler): atv, Kanal D, Show TV, Star TV, NOW, TV8 canlı yayınları ve YouTube **uygulamanın içinde** açılır. Seçtiğin kanal onda da açılır; video belirince birlikte izleme kendiliğinden başlar. Uygulama içinde başka bir bölüme ya da kanala geçersen o da takip eder.
+
+- **Sadece video:** İzlerken sitenin menüleri ve reklam alanları gizlenir, oynatıcı alanı kaplar; sitenin kendi kontrolleri çalışır. Üst çubuktaki düğmeyle sayfanın tamamına dönülür (başka bölüm seçmek için).
+- **Canlı yayında** zaman çubuğu yerine **CANLI** yazar. İki oynatıcının canlı zamanı karşılaştırılamadığı için sadece oynat/durdur ortaktır, sarma yoktur.
+- Sitede yapılanlar (oynat, durdur, sar) karşıya geçer. Reklam araları ikinizi de bekletir.
+- Uygulamanın içinde sadece bu siteler açılır (`apps/desktop/src/shared/web.ts`); açılır pencereler engellenir, kamera/mikrofon izni verilmez. NOW'un canlı yayını sitenin kendi oynatıcısı yüzünden bazen yüklenmiyor.
+- Netflix, TV+, Disney+ gibi platformlar Widevine (kopya koruması) ister; uygulamanın içinde oynamazlar. Kanallar panelinden seçince tarayıcında açılır (aşağıdaki eklentiyle).
 
 ## Netflix ve diğerleri (tarayıcı eklentisi)
 
@@ -185,9 +196,10 @@ npm run test:phone -w @birlikte/desktop           # masaüstü ↔ telefon taray
 npm run test:sync -w @birlikte/desktop            # senkron mod, bölüm gönderme, kayma, istatistik (42)
 npm run test:youtube -w @birlikte/desktop         # YouTube senkronu, gerçek YouTube; internet yoksa atlanır (18)
 npm run test:camera -w @birlikte/desktop          # kamera arka planı bulanıklaştırma (9)
-npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi, iki Edge + iki uygulama (21)
+npm run test:extension -w @birlikte/desktop       # tarayıcı eklentisi, iki Edge + iki uygulama (36); EDGE_PATH ile Chrome for Testing da olur
+npm run test:web -w @birlikte/desktop             # uygulama içinde izleme: kanallar, canlı, sadece video (26)
 npm run dist:dir -w @birlikte/desktop
-npm run test:packaged -w @birlikte/desktop        # paketlenmiş uygulama + içindeki ffmpeg ve eklenti (6)
+npm run test:packaged -w @birlikte/desktop        # paketlenmiş uygulama + ffmpeg, eklenti, uygulama içi sayfa (7)
 ```
 
 Ekran görüntüleri `apps/desktop/test/output/` klasörüne düşer.

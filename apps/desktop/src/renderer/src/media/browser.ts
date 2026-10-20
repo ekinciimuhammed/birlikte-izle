@@ -1,5 +1,6 @@
 // Tarayıcıdaki oynatıcı (Netflix, Disney+, Prime…): Birlikte İzle eklentisi o sekmedeki videoyu bu
-// uygulamaya bağlar. İkimiz de kendi tarayıcımızda, kendi hesabımızla izleriz; uygulama sadece
+// uygulamaya bağlar. Aynı sınıf uygulamanın içindeki sayfalar (Kanallar, YouTube; media/webview.ts) için
+// de kullanılır: ikisi de aynı mesajlarla (video / state / gone, cmd / open) konuşur. İkimiz de kendi tarayıcımızda, kendi hesabımızla izleriz; uygulama sadece
 // oynat/durdur/sar'ı eşitler (senkron mod). Kamera ve ses yine uygulamada.
 //
 // Tarayıcıda elle yapılanlar da (Netflix'te boşluk tuşu, zaman çubuğu) yakalanır: host'ta bu
@@ -30,6 +31,33 @@ export const useExtension = create<ExtensionState>(() => ({
   video: null,
 }));
 
+/** Oynatıcının konuştuğu sekme: tarayıcıdaki (eklenti) ya da uygulamanın içindeki sayfa */
+export interface TabLink {
+  send(msg: Record<string, unknown>): void;
+  onMessage(fn: (m: Record<string, unknown>) => void): void;
+  /** Sekmedeki güncel video */
+  getVideo(): BrowserVideo | null;
+  setVideo(video: BrowserVideo | null): void;
+}
+
+/** Tarayıcı eklentisi: bu bilgisayardaki eklenti yerel WebSocket ile ana sürece bağlanır */
+export function extensionLink(): TabLink | null {
+  const ext = bridge.extension;
+  if (!ext) return null;
+  ext.status().then((s) => useExtension.setState(s), () => {});
+  ext.onStatus((s) => useExtension.setState({ ...s, ...(!s.connected && { video: null }) }));
+  return {
+    send: (msg) => ext.send(msg),
+    onMessage: (fn) =>
+      ext.onMessage((m) => {
+        if (m.t === 'hello') useExtension.setState({ connected: true, browser: typeof m.browser === 'string' ? m.browser : null });
+        else fn(m);
+      }),
+    getVideo: () => useExtension.getState().video,
+    setVideo: (video) => useExtension.setState({ video }),
+  };
+}
+
 interface TabState {
   playing: boolean;
   time: number;
@@ -44,7 +72,7 @@ interface TabState {
   at: number;
 }
 
-const samePage = (a: string, b: string) => {
+export const samePage = (a: string, b: string) => {
   try {
     const x = new URL(a);
     const y = new URL(b);
@@ -76,12 +104,8 @@ export class BrowserPlayer implements Playable {
   private waiters: { test: () => boolean; done: () => void }[] = [];
   private opening: { resolve: () => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null;
 
-  constructor() {
-    const ext = bridge.extension;
-    if (!ext) return;
-    ext.status().then((s) => useExtension.setState(s), () => {});
-    ext.onStatus((s) => useExtension.setState({ ...s, ...(!s.connected && { video: null }) }));
-    ext.onMessage((m) => this.onMessage(m));
+  constructor(private readonly tab: TabLink | null) {
+    tab?.onMessage((m) => this.onMessage(m));
   }
 
   get hasSource() {
@@ -125,7 +149,7 @@ export class BrowserPlayer implements Playable {
 
   /** Host: tarayıcıdaki videoyu kullan (o sekmede ne oynuyorsa) */
   attach() {
-    const video = useExtension.getState().video;
+    const video = this.tab?.getVideo();
     this.active = true;
     this.expected = null;
     this.title = video?.title ?? '';
@@ -139,8 +163,8 @@ export class BrowserPlayer implements Playable {
     this.expected = url;
     this.title = '';
     this.st = blank();
-    bridge.extension?.send({ t: 'open', url, replace: true });
-    const current = useExtension.getState().video;
+    this.tab?.send({ t: 'open', url, replace: true });
+    const current = this.tab?.getVideo();
     if (current && samePage(current.url, url)) {
       this.title = current.title;
       return Promise.resolve();
@@ -190,7 +214,7 @@ export class BrowserPlayer implements Playable {
   setVolume(volume: number, muted: boolean) {
     if (!this.active || (Math.abs(volume - this.volume.v) < 0.01 && muted === this.volume.muted)) return;
     this.volume = { v: volume, muted };
-    bridge.extension?.send({ t: 'cmd', cmd: 'volume', value: volume, muted });
+    this.tab?.send({ t: 'cmd', cmd: 'volume', value: volume, muted });
   }
 
   unload() {
@@ -210,20 +234,18 @@ export class BrowserPlayer implements Playable {
   // ---------------------------------------------------------------------------------------------
 
   private command(cmd: string, value?: number) {
-    bridge.extension?.send({ t: 'cmd', cmd, value });
+    this.tab?.send({ t: 'cmd', cmd, value });
   }
 
   private onMessage(m: Record<string, unknown>) {
-    if (m.t === 'hello') {
-      useExtension.setState({ connected: true, browser: typeof m.browser === 'string' ? m.browser : null });
-    } else if (m.t === 'video') {
+    if (m.t === 'video') {
       const video: BrowserVideo = {
         site: String(m.site ?? '').slice(0, 40),
         title: String(m.title ?? '').slice(0, 200),
         url: String(m.url ?? ''),
         duration: Number(m.duration) || 0,
       };
-      useExtension.setState({ video });
+      this.tab?.setVideo(video);
       if (!this.active || (this.expected && !samePage(video.url, this.expected))) return;
       if (video.title && video.title !== this.title) {
         this.title = video.title;
@@ -236,11 +258,11 @@ export class BrowserPlayer implements Playable {
         this.finishOpening();
       }
     } else if (m.t === 'state') {
-      const video = useExtension.getState().video;
+      const video = this.tab?.getVideo();
       if (!this.active || (this.expected && !(video && samePage(video.url, this.expected)))) return;
       this.onState(m as unknown as TabState);
     } else if (m.t === 'gone') {
-      useExtension.setState({ video: null });
+      this.tab?.setVideo(null);
       if (this.active && this.st.playing) {
         this.st = { ...this.st, playing: false, time: this.time, at: Date.now() };
         this.events.dispatchEvent(new Event('pause'));

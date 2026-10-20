@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, screen, session, shell, systemPreferences } from 'electron';
 import { join } from 'node:path';
+import { isEmbeddable, WEB_PARTITION } from '../shared/web';
 import { setupExtensionBridge } from './extension';
 import { registerMediaScheme, setupMedia } from './media';
 import { setupMenu } from './menu';
@@ -58,7 +59,22 @@ function createWindow() {
       spellcheck: false,
       // Film yayını pencere arkada ya da küçültülmüşken de kesilmemeli.
       backgroundThrottling: false,
+      // Kanallar ve YouTube uygulamanın içinde (gömülü sayfa) açılır; aşağıda sıkı kurallarla.
+      webviewTag: true,
     },
+  });
+
+  // Gömülü sayfa: sadece izin verilen siteler, kendi oynatıcı betiğimizle, Node erişimi olmadan.
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    const local = process.env['BIRLIKTE_EMBED_LOCAL'] === '1'; // uygulama içi izleme testi
+    if (params.src !== 'about:blank' && !isEmbeddable(params.src, local)) return event.preventDefault();
+    webPreferences.preload = join(__dirname, '../preload/web.js');
+    webPreferences.nodeIntegration = false;
+    webPreferences.nodeIntegrationInSubFrames = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.backgroundThrottling = false;
+    params.partition = WEB_PARTITION;
   });
 
   // Otomatik testte pencereler odağı çalmasın (kullanıcının klavyesi teste karışmasın).
@@ -93,6 +109,7 @@ app.whenReady().then(() => {
     done(true);
   });
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission));
+  setupWebSession();
 
   ipcMain.handle('settings:load', () => settings.load());
   ipcMain.handle('settings:save', (_e, values: unknown) => settings.save(values));
@@ -105,6 +122,28 @@ app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+/** Gömülü sayfaların oturumu: sadece tam ekran izni; tarayıcı kimliği düz Chrome (bazı siteler Electron'u reddediyor) */
+function setupWebSession() {
+  const web = session.fromPartition(WEB_PARTITION);
+  web.setPermissionRequestHandler((_wc, permission, done) => done(permission === 'fullscreen'));
+  web.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
+  web.setUserAgent(
+    web
+      .getUserAgent()
+      .replace(/\(KHTML, like Gecko\) .*?Chrome\//, '(KHTML, like Gecko) Chrome/')
+      .replace(/ Electron\/\S+/, ''),
+  );
+}
+
+// Gömülü sayfalar yeni pencere açamaz (reklam açılır pencereleri); bağlantılar sayfanın içinde kalır.
+app.on('web-contents-created', (_e, contents) => {
+  if (contents.getType() !== 'webview') return;
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (event, url) => {
+    if (!/^https?:/.test(url)) event.preventDefault();
   });
 });
 

@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Download,
   FastForward,
+  Focus,
   FolderOpen,
   Heart,
   Link,
@@ -16,6 +17,7 @@ import {
   Mic,
   MicOff,
   Minimize,
+  PanelTop,
   Pause,
   Play,
   Settings as SettingsIcon,
@@ -94,7 +96,12 @@ export function Watch({
   };
   useEffect(() => {
     poke.current();
-    return () => clearTimeout(hideTimer.current);
+    // Fare uygulama içindeki sayfanın üstündeyken olaylar sayfaya gider; sayfa hareketi ayrıca bildirir.
+    const offWebPoke = watch.webview?.onPoke(() => poke.current());
+    return () => {
+      clearTimeout(hideTimer.current);
+      offWebPoke?.();
+    };
   }, []);
   const showUi = uiVisible || !s.playing || s.role === 'idle';
 
@@ -206,7 +213,9 @@ export function Watch({
       <MediaSlot element={watch.localMovie} className="movie" hidden={s.source !== 'file'} />
       <MediaSlot element={watch.remoteMovie} className="movie" hidden={!(s.role === 'guest' && !s.syncMode)} />
       <MediaSlot element={watch.youtube.el} className="movie youtube" hidden={s.source !== 'youtube'} />
-      {active && (
+      {/* Kanallar ve YouTube: sitenin kendisi uygulamanın içinde; sayfayla etkileşim serbest */}
+      {watch.webview && <MediaSlot element={watch.webview.el} className="movie web" hidden={s.source !== 'web'} />}
+      {active && s.source !== 'web' && (
         <div
           className="movie-hit"
           onPointerDown={onMoviePointerDown}
@@ -217,7 +226,7 @@ export function Watch({
 
       {active && <SubtitleOverlay raised={showUi} />}
       {s.source === 'browser' && <BrowserStage partner={name} onSettings={onSettings} />}
-      {!active && !s.preparing && <EmptyState name={name} peerHere={s.peerHere} onPick={pickFile} />}
+      {!active && !s.preparing && s.source !== 'web' && <EmptyState name={name} peerHere={s.peerHere} onPick={pickFile} />}
       {s.preparing && <PreparingOverlay preparing={s.preparing} partner={name} />}
       {s.role === 'guest' && s.connection !== 'connected' && !s.preparing && (
         <div className="watch-overlay">
@@ -233,6 +242,11 @@ export function Watch({
         <div className="watch-title">{s.title || 'Birlikte İzle'}</div>
         <TransferPill />
         <PresencePill name={name} />
+        {s.source === 'web' && active && (
+          <IconButton label={s.webFocus ? 'Sayfayı göster' : 'Sadece video'} onClick={() => watch.toggleWebFocus()}>
+            {s.webFocus ? <PanelTop /> : <Focus />}
+          </IconButton>
+        )}
         <ChannelsMenu />
         <IconButton label="Dosya aç" onClick={pickFile}>
           <FolderOpen />
@@ -259,7 +273,7 @@ export function Watch({
             requestAnimationFrame(() => button?.blur());
           }}
         >
-          <Timeline pos={s.pos} duration={s.duration} />
+          <Timeline pos={s.pos} duration={s.duration} live={s.live} />
           <div className="controls-row">
             <div className="controls-group">
               <IconButton label={s.muted ? 'Sesi aç' : 'Sesi kapat'} onClick={() => watch.toggleMute()}>
@@ -507,8 +521,16 @@ function PresencePill({ name }: { name: string }) {
   );
 }
 
-function Timeline({ pos, duration }: { pos: number; duration: number }) {
+function Timeline({ pos, duration, live }: { pos: number; duration: number; live: boolean }) {
   const [drag, setDrag] = useState<number | null>(null);
+  // Canlı yayında zaman çizelgesi anlamsız (iki oynatıcının zamanı farklı, sarma yok)
+  if (live) {
+    return (
+      <div className="timeline live">
+        <span className="live-badge">CANLI</span>
+      </div>
+    );
+  }
   const shown = drag ?? pos;
   const commit = () => {
     if (drag == null) return;

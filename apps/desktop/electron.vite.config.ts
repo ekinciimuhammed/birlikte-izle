@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
@@ -29,7 +30,14 @@ function productionCsp(): Plugin {
 
 export default defineConfig({
   main: {},
-  preload: {},
+  preload: {
+    build: {
+      rollupOptions: {
+        // web: uygulama içindeki sayfaların (Kanallar, YouTube) oynatıcısını bulan betik
+        input: { index: resolve('src/preload/index.ts'), web: resolve('src/preload/web.ts') },
+      },
+    },
+  },
   renderer: {
     plugins: [react(), productionCsp()],
     // MediaPipe modeli (kamera arka planı)
