@@ -35,6 +35,8 @@ interface TabState {
   time: number;
   duration: number;
   rate: number;
+  /** Canlı yayın (süresi yok): iki tarafın zamanı karşılaştırılamaz, konum eşitlenmez */
+  live: boolean;
   seeking: boolean;
   buffering: boolean;
   ended: boolean;
@@ -55,7 +57,6 @@ const samePage = (a: string, b: string) => {
 export class BrowserPlayer implements Playable {
   readonly kind = 'browser';
   readonly fineRate = true;
-  readonly isLive = false;
   readonly events = new EventTarget();
   title = '';
 
@@ -85,6 +86,10 @@ export class BrowserPlayer implements Playable {
 
   get hasSource() {
     return this.active;
+  }
+
+  get isLive() {
+    return this.active && this.st.live;
   }
 
   get duration() {
@@ -127,14 +132,14 @@ export class BrowserPlayer implements Playable {
     this.st = { ...blank(), duration: video?.duration ?? 0 };
   }
 
-  /** Guest: karşının açtığı sayfayı kendi tarayıcımda aç ve video gelene kadar bekle */
+  /** Guest: karşının açtığı sayfayı kendi tarayıcımda aç (izlediğim sekmede) ve video gelene kadar bekle */
   open(url: string): Promise<void> {
     this.finishOpening(new Error('İptal edildi'));
     this.active = true;
     this.expected = url;
     this.title = '';
     this.st = blank();
-    bridge.extension?.send({ t: 'open', url });
+    bridge.extension?.send({ t: 'open', url, replace: true });
     const current = useExtension.getState().video;
     if (current && samePage(current.url, url)) {
       this.title = current.title;
@@ -160,6 +165,11 @@ export class BrowserPlayer implements Playable {
   }
 
   async seek(t: number) {
+    if (this.st.live) {
+      // Canlı yayında sarma yok (iki oynatıcının zaman çizelgesi farklı)
+      this.events.dispatchEvent(new Event('seeked'));
+      return;
+    }
     const target = Math.max(0, Math.min(t, this.st.duration || Infinity));
     this.seekTarget = target;
     this.seekUntil = Date.now() + 2500;
@@ -245,6 +255,7 @@ export class BrowserPlayer implements Playable {
       time: Number(next.time) || 0,
       duration: Number(next.duration) || prev.duration,
       rate: Number(next.rate) || 1,
+      live: !!next.live,
       seeking: !!next.seeking,
       buffering: !!next.buffering,
       ended: !!next.ended,
@@ -276,7 +287,8 @@ export class BrowserPlayer implements Playable {
         fire(st.playing ? 'userplay' : 'userpause');
       }
     }
-    if (st.seeking) return;
+    // Canlı yayında oynatıcı canlıya yetişmek için kendisi atlayabilir: elle sarma sayılmaz.
+    if (st.seeking || st.live) return;
     const base = this.stable;
     this.stable = st;
     if (!base || this.seekTarget !== null || now < this.seekUntil) return;
@@ -313,5 +325,5 @@ export class BrowserPlayer implements Playable {
 }
 
 function blank(): TabState {
-  return { playing: false, time: 0, duration: 0, rate: 1, seeking: false, buffering: false, ended: false, at: 0 };
+  return { playing: false, time: 0, duration: 0, rate: 1, live: false, seeking: false, buffering: false, ended: false, at: 0 };
 }

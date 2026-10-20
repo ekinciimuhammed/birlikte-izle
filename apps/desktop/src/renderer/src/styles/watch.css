@@ -181,6 +181,53 @@
   outline-offset: 1px;
 }
 
+/* Kanallar (boş ekran): canlı TV ve platformlar */
+.channels {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+  margin: 28px auto 0;
+}
+
+.channel-group-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--label-3);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.channel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.channel-chip {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill-2);
+  color: var(--label);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.channel-chip:hover {
+  background: var(--fill);
+}
+
+.channel-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .yt-field svg {
   flex: none;
   width: 16px;
@@ -654,6 +701,14 @@
   padding: 6px;
   border-radius: 16px;
   transform-origin: bottom right;
+}
+
+/* Üst çubuktaki menü aşağı açılır */
+.menu.menu-down {
+  top: calc(100% + 10px);
+  right: 0;
+  bottom: auto;
+  transform-origin: top right;
 }
 
 .menu-section + .menu-section {

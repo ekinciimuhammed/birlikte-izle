@@ -44,6 +44,7 @@ import { HeartFilled, SkipIcon } from '../ui/icons';
 import { youtubeId } from '../media/youtube';
 import { formatTime, useWatch, watch, type HudIcon } from '../watch/controller';
 import { BrowserOffer, BrowserStage } from './watch/BrowserStage';
+import { ChannelGrid, ChannelsMenu } from './watch/Channels';
 import { MediaMenu } from './watch/MediaMenu';
 import { PreparingOverlay } from './watch/PreparingOverlay';
 import { FloatingReactions, ReactionPicker } from './watch/Reactions';
@@ -232,6 +233,7 @@ export function Watch({
         <div className="watch-title">{s.title || 'Birlikte İzle'}</div>
         <TransferPill />
         <PresencePill name={name} />
+        <ChannelsMenu />
         <IconButton label="Dosya aç" onClick={pickFile}>
           <FolderOpen />
         </IconButton>
@@ -390,6 +392,7 @@ function EmptyState({ name, peerHere, onPick }: { name: string; peerHere: boolea
           <p>{name} bir bölüm açınca film burada başlayacak. Sen de oynatıp durdurabileceksin.</p>
           <Notice />
           <YouTubeField />
+          <ChannelGrid />
         </motion.div>
       </div>
     );
@@ -412,6 +415,7 @@ function EmptyState({ name, peerHere, onPick }: { name: string; peerHere: boolea
           {watch.canConvert ? 'ya da dosyayı buraya sürükle · MKV, AVI, MP4… hepsi açılır' : 'ya da dosyayı buraya sürükle'}
         </p>
         <YouTubeField />
+        <ChannelGrid />
         <BrowserOffer />
       </motion.div>
     </div>

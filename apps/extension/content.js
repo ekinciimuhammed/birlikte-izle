@@ -10,9 +10,14 @@
 
   const site = birlikteSite(location.href);
   const isNetflix = location.hostname.endsWith('netflix.com');
+  // Kanalların canlı yayın sayfaları (atv.com.tr/canli-yayin…): oradaki video canlıdır
+  const livePage = /(^|\/)(canli|canli-yayin|live)(\/|$|-|\?)/i.test(location.pathname);
   let video = null;
   let announced = '';
   let lastReport = 0;
+  // Canlı yayınlar süreyi sonsuz değil kayan pencere olarak da bildirebiliyor: oynarken süre büyüyorsa canlıdır.
+  let growing = false;
+  let lastDuration = 0;
 
   const send = (msg) => {
     try {
@@ -74,6 +79,8 @@
       time: video.currentTime || 0,
       duration: Number.isFinite(video.duration) ? video.duration : 0,
       rate: video.playbackRate || 1,
+      // Canlı yayın: iki oynatıcının zamanı karşılaştırılamaz (uygulama konumu eşitlemez)
+      live: livePage || growing || !Number.isFinite(video.duration),
       seeking: video.seeking,
       buffering: !video.paused && video.readyState < 3,
       ended: video.ended,
@@ -114,6 +121,8 @@
     if (video) EVENTS.forEach((e) => video.removeEventListener(e, report));
     video = v;
     announced = '';
+    growing = false;
+    lastDuration = 0;
     if (!v) return send({ t: 'gone' });
     EVENTS.forEach((e) => v.addEventListener(e, report));
     announce();
@@ -122,6 +131,12 @@
   const timer = setInterval(() => {
     watch(pick());
     if (!video) return;
+    const d = video.duration;
+    if (Number.isFinite(d) && lastDuration && d > lastDuration + 0.5 && !video.paused && !growing) {
+      growing = true;
+      report();
+    }
+    if (Number.isFinite(d)) lastDuration = d;
     announce(); // başlık ya da süre sonradan gelebilir
     // Oynarken saniyede iki kez, dururken arada bir
     if (Date.now() - lastReport > (video.paused ? 3000 : 500)) report();

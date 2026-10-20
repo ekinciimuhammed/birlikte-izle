@@ -33,6 +33,7 @@ const VIDEO = makeBigFixture(); // 60 sn
 const SITE_PORT = 8797;
 const PAGE = `http://127.0.0.1:${SITE_PORT}/izle/bolum-1`;
 const PAGE_IFRAME = `http://127.0.0.1:${SITE_PORT}/izle/bolum-2`; // oynatıcı iframe içinde
+const PAGE_LIVE = `http://127.0.0.1:${SITE_PORT}/canli/kanal-1`; // canlı yayın gibi (süresi yok)
 
 // "Video sitesi": izleme sayfası + parça parça (Range) video
 const site = createServer((req, res) => {
@@ -53,6 +54,20 @@ const site = createServer((req, res) => {
   if (req.url.startsWith('/izle/bolum-2')) {
     return res.end(`<!doctype html><title>Deneme Dizisi 2. Bölüm | Yerel sunucu</title>
       <body style="margin:0;background:#000"><iframe src="/oynatici/bolum-2" style="width:960px;height:540px;border:0"></iframe></body>`);
+  }
+  if (req.url.startsWith('/canli/')) {
+    // Tuvalden akış: süresi sonsuz, zaman çizelgesi bu sayfaya özel (gerçek canlı yayın gibi)
+    return res.end(`<!doctype html><title>Yerel Kanal Canlı | Yerel sunucu</title>
+      <body style="margin:0;background:#000">
+      <canvas width="640" height="360" style="position:absolute;left:-9999px"></canvas>
+      <video style="width:960px;height:540px" muted></video>
+      <script>
+        const c = document.querySelector('canvas');
+        const x = c.getContext('2d');
+        let i = 0;
+        setInterval(() => { x.fillStyle = 'hsl(' + (i++ % 360) + ' 60% 40%)'; x.fillRect(0, 0, 640, 360); }, 33);
+        document.querySelector('video').srcObject = c.captureStream(30);
+      </script></body>`);
   }
   if (req.url.startsWith('/oynatici/')) {
     return res.end(`<!doctype html><title>Oynatıcı</title>
@@ -189,6 +204,38 @@ try {
     'iframe: uygulamadan durdurunca duruyor',
     await player.waitForFunction(() => document.querySelector('video').paused, null, { timeout: 8000 }).then(() => true, () => false),
   );
+
+  // --- Kanallar: A uygulamadan kanal seçer → iki tarafta da izlenen sekme o kanala geçer ---------
+  const waitUrl = (page, url) => page.waitForURL(url, { timeout: 15_000 }).then(() => true, () => false);
+  const tabs = [EA.pages().length, EB.pages().length];
+  await A.evaluate((url) => window.__birlikte.watch.openChannel({ name: 'Yerel Kanal', url }), PAGE_LIVE);
+  check('kanal: A\'nın sekmesi kanala geçti (yeni sekme açılmadı)', (await waitUrl(pa, PAGE_LIVE)) && EA.pages().length === tabs[0]);
+  check('kanal: B\'nin sekmesi de geçti (yeni sekme açılmadı)', (await waitUrl(pb, PAGE_LIVE)) && EB.pages().length === tabs[1]);
+  check(
+    'kanal: A video belirince kendiliğinden birlikte izlemeye geçti',
+    await until(A, (u) => window.__birlikte.state().role === 'host' && window.__birlikte.state().webVideo?.url === u, PAGE_LIVE, 20_000),
+  );
+  check('kanal: B onu takip ediyor (kendi tarayıcısından)', await until(B, () => window.__birlikte.state().syncMode && window.__birlikte.state().source === 'browser', null, 20_000));
+  check('kanal: canlı yayın olarak tanındı', await A.evaluate(() => window.__birlikte.watch.browser.isLive));
+  await cmd(A, 'play');
+  check('canlı: A oynattı → iki tarayıcı da oynuyor', (await playing(pa)) && (await playing(pb)));
+  await pb.evaluate(() => document.querySelector('video').pause());
+  check('canlı: B tarayıcıda durdurdu → A da durdu', await paused(pa));
+  await pb.evaluate(() => document.querySelector('video').play());
+  check('canlı: B oynattı → A da oynadı', await playing(pa));
+
+  // Normal bölüme dönüş: konum yine milisaniyeler içinde eşitleniyor
+  await A.evaluate((url) => window.__birlikte.watch.openChannel({ name: 'Yerel Dizi', url }), PAGE);
+  check('kanal değişti: iki sekme de bölüme geçti', (await waitUrl(pa, PAGE)) && (await waitUrl(pb, PAGE)));
+  check(
+    'kanal değişti: B yeni bölümü takip ediyor',
+    await until(B, (u) => window.__birlikte.state().syncMode && window.__birlikte.state().webVideo?.url === u, PAGE, 20_000),
+  );
+  await cmd(A, 'play');
+  await A.waitForTimeout(4000);
+  d = await drift(pa, pb);
+  check('kanal değişti: birlikte oynarken fark < 150 ms', (await playing(pb)) && Math.abs(d) < 0.15, fmt(d));
+  await cmd(A, 'pause');
 
   await A.screenshot({ path: join(OUT, 'eklenti-A.png') });
   await B.screenshot({ path: join(OUT, 'eklenti-B.png') });

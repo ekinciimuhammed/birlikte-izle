@@ -223,6 +223,8 @@ export const PeerMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('cam'), on: z.boolean() }),
   z.object({ t: z.literal('mic'), on: z.boolean() }),
   z.object({ t: z.literal('react'), kind: Reaction }),
+  /** Kanallar: karşı taraf bir kanal ya da platform seçti; aynısı benim tarayıcımda da açılsın */
+  z.object({ t: z.literal('channel'), name: z.string().max(40), url: z.string().max(2000).regex(/^https:\/\//) }),
   /** İki tarafta aynı olması gereken ayarlar (ör. codec) */
   z.object({ t: z.literal('setting'), key: z.string().max(64), value: SettingValue }),
 ]);

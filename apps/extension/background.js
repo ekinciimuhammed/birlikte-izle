@@ -93,12 +93,15 @@ async function onApp(msg) {
     return;
   }
   if (msg.t === 'open' && typeof msg.url === 'string' && birlikteAllowedUrl(msg.url)) {
-    await openUrl(msg.url);
+    await openUrl(msg.url, msg.replace === true);
   }
 }
 
-/** Karşının açtığı bölümü bu tarayıcıda aç: zaten açık bir sekme varsa ona geç. */
-async function openUrl(url) {
+/**
+ * Karşının açtığı bölümü bu tarayıcıda aç: zaten açık bir sekme varsa ona geç. replace: yoksa yeni
+ * sekme açmak yerine kontrol edilen sekmeyi oraya götür (kanal değiştirme, kumanda gibi).
+ */
+async function openUrl(url, replace = false) {
   const target = new URL(url);
   const tabs = await chrome.tabs.query({});
   const same = tabs.find((t) => {
@@ -113,11 +116,20 @@ async function openUrl(url) {
     await chrome.tabs.update(same.id, { active: true });
     await chrome.windows.update(same.windowId, { focused: true }).catch(() => {});
     activate(same.id);
-  } else {
-    const tab = await chrome.tabs.create({ url, active: true });
-    activeTab = tab.id;
-    activeFrame = null;
+    return;
   }
+  const moved = replace && activeTab != null ? await chrome.tabs.update(activeTab, { url, active: true }).catch(() => null) : null;
+  if (moved) {
+    await chrome.windows.update(moved.windowId, { focused: true }).catch(() => {});
+    // Eski sayfanın videosu gitti; yenisi bulununca bildirilir.
+    activeFrame = null;
+    lastVideo = lastState = null;
+    toApp({ t: 'gone' });
+    return;
+  }
+  const tab = await chrome.tabs.create({ url, active: true });
+  activeTab = tab.id;
+  activeFrame = null;
 }
 
 /** Bu sekmeyi (ya da sekmedeki bir çerçeveyi) kontrol et ve oynatıcısının bilgisini uygulamaya bildir */

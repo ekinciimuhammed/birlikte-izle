@@ -12,6 +12,7 @@ import type { FileRef, PeerMessage, PlayAction, Reaction, SignalData } from '@bi
 import { mediaUrl, type MediaInfo } from '../../../shared/media';
 import { BackgroundBlur } from '../media/background';
 import { BrowserPlayer, useExtension } from '../media/browser';
+import { sameSite, type Channel } from '../media/channels';
 import { MoviePlayer, type Playable, type WebVideo } from '../media/player';
 import { audioLabel, pickAudio, planPlayback, type Step } from '../media/playback';
 import { YouTubeError, YouTubePlayer, youtubeId, youtubeStart } from '../media/youtube';
@@ -154,6 +155,7 @@ class WatchController {
   readonly youtube = new YouTubePlayer();
   readonly browser = new BrowserPlayer();
   private pendingWeb: WebVideo | null = null; // guest: eklenti bağlanınca açılacak
+  private pendingChannel: { url: string; until: number } | null = null; // seçtiğim kanalda video belirince birlikte izle
   /** Şu an kullanılan oynatıcı (host'ta film, guest'te senkron moddaki kopya) */
   private player: Playable = this.filePlayer;
 
@@ -263,6 +265,12 @@ class WatchController {
     // Eklenti sonradan bağlandıysa bekleyen bölümü aç.
     useExtension.subscribe((s, prev) => {
       if (s.connected && !prev.connected && this.pendingWeb && get().role === 'guest') this.followBrowser(this.pendingWeb);
+      // Kanallar: seçtiğim kanalda video belirdi → "Birlikte izle"ye basmış gibi
+      const channel = this.pendingChannel;
+      if (channel && s.video && s.video !== prev.video && sameSite(s.video.url, channel.url)) {
+        this.pendingChannel = null;
+        if (Date.now() < channel.until && get().active) this.openBrowser();
+      }
     });
     onSettingChange((key, value, origin) => this.onSetting(key, value, origin));
     bridge.media?.onProgress((p) => {
@@ -691,6 +699,14 @@ class WatchController {
 
       case 'react':
         this.floatReaction(m.kind);
+        break;
+
+      case 'channel':
+        // O bir kanal seçti: benim tarayıcımda da açılsın. Onda video belirince birlikte izleme başlar.
+        this.pendingChannel = null;
+        this.hud(`${this.partnerName()} kanal açtı: ${m.name}`, 'play');
+        if (useExtension.getState().connected) bridge.extension?.send({ t: 'open', url: m.url, replace: true });
+        else set({ notice: `${this.partnerName()} ${m.name} kanalını açtı. Birlikte izlemek için tarayıcı eklentisini kur (Ayarlar → Genel).` });
         break;
 
       case 'subs':
@@ -1251,6 +1267,13 @@ class WatchController {
     const s = this.remoteState;
     const p = this.player;
     if (!get().syncMode || !s || this.followSeeking || p.seeking || p.buffering || !p.hasSource) return;
+    // Tarayıcıdaki canlı yayında iki oynatıcının zamanı karşılaştırılamaz: sadece oynat/durdur eşitlenir.
+    // (Dosya oynatıcısındaki isLive "anında dönüştürme" demek; o sarılarak eşitlenir.)
+    if (p === this.browser && p.isLive) {
+      if (s.playing && !p.playing && !p.ended) p.play().catch(() => {});
+      else if (!s.playing && p.playing) p.pause();
+      return;
+    }
     const target = this.syncTarget();
     const drift = p.time - target;
     // Hızı ince ayarlanamayan oynatıcıda kaymayı daha erken, sararak kapat.
@@ -1407,6 +1430,24 @@ class WatchController {
   }
 
   // --- Tarayıcıdaki video (Netflix, Disney+, Prime… eklentiyle) -------------------------------
+
+  /**
+   * Kanallar: seçilen kanal (canlı TV ya da platform) ikimizin tarayıcısında birden açılır; izlediğim
+   * sekme oraya geçer. Bende video belirince birlikte izlemeye geçilir.
+   */
+  openChannel(channel: Channel) {
+    const ext = useExtension.getState();
+    if (!ext.connected) {
+      if (!ext.available) return set({ notice: 'Kanallar masaüstü uygulamasında, tarayıcı eklentisiyle çalışır.' });
+      window.open(channel.url, '_blank', 'noopener');
+      return set({ notice: `${channel.name} tarayıcında açıldı. Birlikte izlemek için tarayıcı eklentisini kur (Ayarlar → Genel).` });
+    }
+    set({ notice: null });
+    bridge.extension?.send({ t: 'open', url: channel.url, replace: true });
+    this.send({ t: 'channel', name: channel.name, url: channel.url });
+    this.pendingChannel = { url: channel.url, until: Date.now() + 15 * 60_000 };
+    this.hud(`${channel.name} açılıyor`, 'play');
+  }
 
   /** Host: tarayıcıda açık olan bölümü paylaş. O da kendi tarayıcısında açar, birlikte izleriz. */
   openBrowser() {

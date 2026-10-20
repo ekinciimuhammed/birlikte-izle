@@ -155,6 +155,10 @@ try {
   await A.getByRole('button', { name: /Birlikte İzle/ }).click();
   await B.getByRole('button', { name: 'Katıl' }).click();
   check('P2P bağlandı', await visible(A.locator('.watch-topbar .pill', { hasText: 'Bade burada' }), 25_000));
+  check('kanallar: boş ekranda kanal düğmeleri var', await visible(A.locator('.channel-chip', { hasText: 'Kanal D' }), 3000));
+  await A.getByRole('button', { name: 'Kanallar' }).click();
+  check('kanallar: üst çubuktaki menü açılıyor', await visible(A.getByRole('menuitem', { name: 'Netflix' }), 3000));
+  await A.keyboard.press('Escape');
 
   await A.setInputFiles('input[type=file]', VIDEO);
   check(
